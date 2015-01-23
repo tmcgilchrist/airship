@@ -18,7 +18,7 @@ import Control.Monad (unless)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Reader.Class (MonadReader, ask)
 import Control.Monad.Trans.Reader (ReaderT(..), runReaderT)
-import Control.Monad.Trans.Either (EitherT(..), runEitherT)
+import Control.Monad.Trans.Either (EitherT(..), runEitherT, left)
 
 import Network.Wai (Application, Request, Response, responseLBS, responseBuilder, requestMethod, queryString)
 import Network.Wai.Handler.Warp (run)
@@ -32,7 +32,7 @@ request :: Webmachine Request
 request = ask
 
 finishWith :: Response -> Webmachine a
-finishWith response = Webmachine $ ReaderT (\_req -> EitherT (return (Left response)))
+finishWith = Webmachine . ReaderT . const . left
 
 runWebmachine :: Request -> Webmachine a -> IO (Either Response a)
 runWebmachine req w = runEitherT (runReaderT (getWebmachine w) req)

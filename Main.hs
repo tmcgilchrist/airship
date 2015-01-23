@@ -15,7 +15,7 @@ import Blaze.ByteString.Builder.Char.Utf8 (fromShow)
 
 import Control.Applicative (Applicative)
 import Control.Monad (unless)
-import Control.Monad.IO.Class (MonadIO)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Reader.Class (MonadReader, ask)
 import Control.Monad.Trans.Reader (ReaderT(..), runReaderT)
 import Control.Monad.Trans.Either (EitherT(..), runEitherT)
@@ -23,7 +23,6 @@ import Control.Monad.Trans.Either (EitherT(..), runEitherT)
 import Network.Wai (Application, Request, Response, responseLBS, responseBuilder, requestMethod, queryString)
 import Network.Wai.Handler.Warp (run)
 import Network.HTTP.Types (Method, methodGet, status200, status405, status503)
---import Network.HTTP.Types.Header (hContentType)
 
 newtype Webmachine a =
     Webmachine { getWebmachine :: ReaderT Request (EitherT Response IO) a }
@@ -75,7 +74,9 @@ resourceToWai resource req respond = do
 ------------------------------------------------------------------------------
 
 myServiceAvailable :: Webmachine Bool
-myServiceAvailable = return True
+myServiceAvailable = do
+    liftIO $ putStrLn "During service available"
+    return True
 
 myAllowedMethods :: Webmachine [Method]
 myAllowedMethods = return [methodGet]

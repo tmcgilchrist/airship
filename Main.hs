@@ -1,10 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Main
     ( Webmachine(..)
     , Resource(..)
+    , request
+    , state
+    , putState
+    , modifyState
     , finishWith
     , main
     , runWebmachine
@@ -17,40 +23,62 @@ import Control.Applicative (Applicative)
 import Control.Monad (unless)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Reader.Class (MonadReader, ask)
-import Control.Monad.Trans.Reader (ReaderT(..), runReaderT)
+import Control.Monad.State.Class (MonadState, get, put, modify)
+import Control.Monad.Writer.Class (MonadWriter)
+import Control.Monad.Trans.RWS.Strict (RWST(..), runRWST)
 import Control.Monad.Trans.Either (EitherT(..), runEitherT, left)
 
-import Network.Wai (Application, Request, Response, responseLBS, responseBuilder, requestMethod, queryString)
+import Network.Wai (Application, Request, Response, responseLBS, responseBuilder, requestMethod)
 import Network.Wai.Handler.Warp (run)
 import Network.HTTP.Types (Method, methodGet, status200, status405, status503)
 
-newtype Webmachine a =
-    Webmachine { getWebmachine :: ReaderT Request (EitherT Response IO) a }
-        deriving (Functor, Applicative, Monad, MonadIO, MonadReader Request)
+newtype Webmachine m s a =
+    Webmachine { getWebmachine :: EitherT Response (RWST Request [Integer] s m) a }
+        deriving (Functor, Applicative, Monad, MonadIO, MonadReader Request,
+                  MonadWriter [Integer], MonadState s)
 
-request :: Webmachine Request
+type Handler m s a = Monad m => Webmachine m s a
+
+-- Functions inside the Webmachine Monad -------------------------------------
+------------------------------------------------------------------------------
+
+request :: Handler m s Request
 request = ask
 
-finishWith :: Response -> Webmachine a
-finishWith = Webmachine . ReaderT . const . left
+state :: Handler m s s
+state = get
 
-runWebmachine :: Request -> Webmachine a -> IO (Either Response a)
-runWebmachine req w = runEitherT (runReaderT (getWebmachine w) req)
+putState :: s -> Handler m s ()
+putState = put
 
-data Resource =
-    Resource { allowedMethods   :: Webmachine [Method]
-             , serviceAvailable :: Webmachine Bool
-             , content          :: Webmachine Response
+modifyState :: (s -> s) -> Handler m s ()
+modifyState = modify
+
+finishWith :: Response -> Handler m s a
+finishWith res = Webmachine (left res)
+
+------------------------------------------------------------------------------
+------------------------------------------------------------------------------
+
+runWebmachine :: Monad m => Request -> s -> Handler m s a -> m (Either Response a)
+runWebmachine req s w = do
+    (e, _, _) <- runRWST (runEitherT (getWebmachine w)) req s
+    return e
+
+data Resource m s =
+    Resource { allowedMethods   :: Handler m s [Method]
+             , serviceAvailable :: Handler m s Bool
+             , content          :: Handler m s Response
              }
 
-eitherResponse :: Request -> Webmachine Response -> IO Response
-eitherResponse req resource = do
-    e <- runWebmachine req resource
+eitherResponse :: Monad m => Request -> s -> Handler m s Response -> m Response
+eitherResponse req s resource = do
+    e <- runWebmachine req s resource
     case e of
         (Left r) -> return r
         (Right r) -> return r
 
-runResource :: Resource -> Webmachine Response
+runResource :: Resource m s -> Handler m s Response
 runResource Resource{..} = do
     req <- request
 
@@ -65,34 +93,35 @@ runResource Resource{..} = do
     -- otherwise return the normal response
     content
 
-resourceToWai :: Resource -> Application
-resourceToWai resource req respond = do
-    response <- eitherResponse req (runResource resource)
+resourceToWai :: Resource IO s -> s -> Application
+resourceToWai resource s req respond = do
+    response <- eitherResponse req s (runResource resource)
     respond response
 
 -- Resource examples ---------------------------------------------------------
 ------------------------------------------------------------------------------
 
-myServiceAvailable :: Webmachine Bool
+myServiceAvailable :: Handler IO s Bool
 myServiceAvailable = do
     liftIO $ putStrLn "During service available"
     return True
 
-myAllowedMethods :: Webmachine [Method]
+myAllowedMethods :: Handler m s [Method]
 myAllowedMethods = return [methodGet]
 
-myContent :: Webmachine Response
+myContent :: Show s => Handler m s Response
 myContent = do
-    req <- request
-    let query = queryString req
-        queryBs = fromShow query
-    return $ responseBuilder status200 [] queryBs
+    _req <- request
+    s <- get
+    let myS = fromShow s
+    return $ responseBuilder status200 [] myS
 
 main :: IO ()
 main = do
     let port = 3000
+        s = 5 :: Integer
         resource = Resource { allowedMethods    = myAllowedMethods
                             , serviceAvailable  = myServiceAvailable
                             , content           = myContent }
 
-    run port (resourceToWai resource)
+    run port (resourceToWai resource s)

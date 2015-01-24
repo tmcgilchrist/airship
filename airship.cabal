@@ -18,4 +18,6 @@ executable airship
                      , transformers == 0.4.2.*
                      , mtl == 2.2.1.*
                      , blaze-builder == 0.3.3.*
+                     , monad-control >= 1.0
+                     , transformers-base == 0.4.3.*
   default-language:    Haskell2010

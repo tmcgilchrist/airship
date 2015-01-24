@@ -1,8 +1,12 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Main
     ( Webmachine(..)
@@ -20,24 +24,52 @@ module Main
 import Blaze.ByteString.Builder.Char.Utf8 (fromShow)
 
 import Control.Applicative (Applicative)
+import Control.Exception (Exception, catch)
 import Control.Monad (unless)
+import Control.Monad.Base (MonadBase)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Reader.Class (MonadReader, ask)
 import Control.Monad.State.Class (MonadState, get, put, modify)
-import Control.Monad.Writer.Class (MonadWriter)
-import Control.Monad.Trans.RWS.Strict (RWST(..), runRWST)
+import Control.Monad.Trans.Class (MonadTrans(..))
+import Control.Monad.Trans.Control (ComposeSt, MonadBaseControl(..), MonadTransControl(..), control, defaultLiftBaseWith, defaultRestoreM)
 import Control.Monad.Trans.Either (EitherT(..), runEitherT, left)
+import Control.Monad.Trans.RWS.Strict (RWST(..), runRWST)
+import Control.Monad.Writer.Class (MonadWriter)
 
 import Network.Wai (Application, Request, Response, responseLBS, responseBuilder, requestMethod)
 import Network.Wai.Handler.Warp (run)
 import Network.HTTP.Types (Method, methodGet, status200, status405, status503)
 
-newtype Webmachine m s a =
-    Webmachine { getWebmachine :: EitherT Response (RWST Request [Integer] s m) a }
-        deriving (Functor, Applicative, Monad, MonadIO, MonadReader Request,
-                  MonadWriter [Integer], MonadState s)
+import System.IO.Error (isEOFError)
 
-type Handler m s a = Monad m => Webmachine m s a
+-- Monad Control fun 
+------------------------------------------------------------------------------
+
+liftedCatch :: (MonadBaseControl IO m, Exception e) => m a -> (e -> m a) -> m a
+liftedCatch f h = control $ \runInIO -> catch (runInIO f) (runInIO . h)
+
+newtype Webmachine s m a =
+    Webmachine { getWebmachine :: EitherT Response (RWST Request [Integer] s m) a }
+        deriving (Functor, Applicative, Monad, MonadIO, MonadBase b,
+                  MonadReader Request,
+                  MonadWriter [Integer],
+                  MonadState s)
+
+instance MonadTrans (Webmachine s) where
+    lift = Webmachine . EitherT . (>>= return . Right) . lift
+
+instance MonadTransControl (Webmachine s) where
+    type StT (Webmachine s) a = StT (RWST Request [Integer] s) (StT (EitherT Response) a)
+    liftWith f = Webmachine . liftWith $ \r -> liftWith $ \r' -> f $ r' . r . getWebmachine
+    restoreT = Webmachine . restoreT . restoreT
+
+instance MonadBaseControl b m => MonadBaseControl b (Webmachine s m) where
+  type StM (Webmachine s m) a = ComposeSt (Webmachine s) m a
+  liftBaseWith = defaultLiftBaseWith
+  restoreM  = defaultRestoreM
+
+-- TODO fix the order of args to handler
+type Handler s m a = Monad m => Webmachine s m a
 
 -- Functions inside the Webmachine Monad -------------------------------------
 ------------------------------------------------------------------------------
@@ -45,13 +77,13 @@ type Handler m s a = Monad m => Webmachine m s a
 request :: Handler m s Request
 request = ask
 
-state :: Handler m s s
+state :: Handler s m s
 state = get
 
-putState :: s -> Handler m s ()
+putState :: s -> Handler s m ()
 putState = put
 
-modifyState :: (s -> s) -> Handler m s ()
+modifyState :: (s -> s) -> Handler s m ()
 modifyState = modify
 
 finishWith :: Response -> Handler m s a
@@ -60,31 +92,32 @@ finishWith res = Webmachine (left res)
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
-runWebmachine :: Monad m => Request -> s -> Handler m s a -> m (Either Response a)
+runWebmachine :: Monad m => Request -> s -> Handler s m a -> m (Either Response a)
 runWebmachine req s w = do
     (e, _, _) <- runRWST (runEitherT (getWebmachine w)) req s
     return e
 
-data Resource m s =
-    Resource { allowedMethods   :: Handler m s [Method]
-             , serviceAvailable :: Handler m s Bool
-             , content          :: Handler m s Response
+data Resource s m=
+    Resource { allowedMethods   :: Handler s m [Method]
+             , serviceAvailable :: Handler s m Bool
+             , content          :: Handler s m Response
              }
 
-eitherResponse :: Monad m => Request -> s -> Handler m s Response -> m Response
+eitherResponse :: Monad m => Request -> s -> Handler s m Response -> m Response
 eitherResponse req s resource = do
     e <- runWebmachine req s resource
     case e of
         (Left r) -> return r
         (Right r) -> return r
 
-runResource :: Resource m s -> Handler m s Response
+runResource :: Resource s IO -> Handler s IO Response
 runResource Resource{..} = do
     req <- request
 
-    -- bail out earlier if the request method is incorrect
-    acceptableMethods <- allowedMethods
-    unless (requestMethod req `elem` acceptableMethods) $ finishWith (responseLBS status405 [] "")
+    flip liftedCatch (\e -> if isEOFError e then undefined else undefined) $ do
+        -- bail out earlier if the request method is incorrect
+        acceptableMethods <- allowedMethods
+        unless (requestMethod req `elem` acceptableMethods) $ finishWith (responseLBS status405 [] "")
 
     -- bail out early if the service is not available
     available <- serviceAvailable
@@ -93,7 +126,7 @@ runResource Resource{..} = do
     -- otherwise return the normal response
     content
 
-resourceToWai :: Resource IO s -> s -> Application
+resourceToWai :: Resource s IO -> s -> Application
 resourceToWai resource s req respond = do
     response <- eitherResponse req s (runResource resource)
     respond response
@@ -101,7 +134,7 @@ resourceToWai resource s req respond = do
 -- Resource examples ---------------------------------------------------------
 ------------------------------------------------------------------------------
 
-myServiceAvailable :: Handler IO s Bool
+myServiceAvailable :: Handler s IO Bool
 myServiceAvailable = do
     liftIO $ putStrLn "During service available"
     return True
@@ -109,7 +142,7 @@ myServiceAvailable = do
 myAllowedMethods :: Handler m s [Method]
 myAllowedMethods = return [methodGet]
 
-myContent :: Show s => Handler m s Response
+myContent :: Show s => Handler s m Response
 myContent = do
     _req <- request
     s <- get

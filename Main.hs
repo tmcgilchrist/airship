@@ -6,6 +6,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Main
@@ -24,7 +25,7 @@ module Main
 import Blaze.ByteString.Builder.Char.Utf8 (fromShow)
 
 import Control.Applicative (Applicative)
-import Control.Exception (Exception, catch)
+import Control.Exception (Exception, IOException, catch)
 import Control.Monad (unless)
 import Control.Monad.Base (MonadBase)
 import Control.Monad.IO.Class (MonadIO, liftIO)
@@ -38,11 +39,9 @@ import Control.Monad.Writer.Class (MonadWriter)
 
 import Network.Wai (Application, Request, Response, responseLBS, responseBuilder, requestMethod)
 import Network.Wai.Handler.Warp (run)
-import Network.HTTP.Types (Method, methodGet, status200, status405, status503)
+import Network.HTTP.Types (Method, methodGet, status200, status405, status500, status503)
 
-import System.IO.Error (isEOFError)
-
--- Monad Control fun 
+-- Monad Control fun
 ------------------------------------------------------------------------------
 
 liftedCatch :: (MonadBaseControl IO m, Exception e) => m a -> (e -> m a) -> m a
@@ -89,6 +88,9 @@ modifyState = modify
 finishWith :: Response -> Handler m s a
 finishWith res = Webmachine (left res)
 
+serverError :: Handler m s a
+serverError = finishWith (responseLBS status500 [] "")
+
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
@@ -103,18 +105,23 @@ data Resource s m=
              , content          :: Handler s m Response
              }
 
+-- | Grab whichever value 'a' is in Either
+both :: Either a a -> a
+both e = case e of
+    (Left a)    -> a
+    (Right a)   -> a
+
 eitherResponse :: Monad m => Request -> s -> Handler s m Response -> m Response
 eitherResponse req s resource = do
     e <- runWebmachine req s resource
-    case e of
-        (Left r) -> return r
-        (Right r) -> return r
+    return $ both e
 
 runResource :: Resource s IO -> Handler s IO Response
 runResource Resource{..} = do
     req <- request
 
-    flip liftedCatch (\e -> if isEOFError e then undefined else undefined) $ do
+    let catcher (_e :: IOException) = serverError
+    flip liftedCatch catcher $ do
         -- bail out earlier if the request method is incorrect
         acceptableMethods <- allowedMethods
         unless (requestMethod req `elem` acceptableMethods) $ finishWith (responseLBS status405 [] "")

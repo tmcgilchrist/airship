@@ -161,7 +161,6 @@ myRoutes = do
     ("/" :: BoundOrUnbound) #> defaultResource
     (("/woo" :: BoundOrUnbound) </> var) #> defaultResource
 
-
 newtype Route = Route { getRoute :: [BoundOrUnbound] } deriving (Show, Monoid)
 
 data BoundOrUnbound = Bound ByteString
@@ -201,8 +200,10 @@ instance Routable Var where
 instance Routable Star where
     toRoute = const $ Route [RestUnbound]
 
-route :: RoutingSpec s m () -> Resource s m
-route = undefined
+route :: Resource s m -> RoutingSpec s m () -> Resource s m
+route defaultResponse routes = _hole $ do
+    routes
+    "/" #> defaultResponse
 
 -- Resource examples ---------------------------------------------------------
 ------------------------------------------------------------------------------

@@ -20,9 +20,12 @@ module Main
     , main
     , runWebmachine
     , resourceToWai
+    , route
     ) where
 
 import Blaze.ByteString.Builder.Char.Utf8 (fromShow)
+import Data.ByteString (ByteString(..))
+import Data.Monoid
 
 import Control.Applicative (Applicative)
 import Control.Exception.Lifted (Exception, IOException, catch, handle)
@@ -35,11 +38,14 @@ import Control.Monad.Trans.Class (MonadTrans(..))
 import Control.Monad.Trans.Control (ComposeSt, MonadBaseControl(..), MonadTransControl(..), control, defaultLiftBaseWith, defaultRestoreM)
 import Control.Monad.Trans.Either (EitherT(..), runEitherT, left)
 import Control.Monad.Trans.RWS.Strict (RWST(..), runRWST)
-import Control.Monad.Writer.Class (MonadWriter)
+import Control.Monad.Writer.Class (MonadWriter, tell)
+import Control.Monad.Writer (Writer)
 
 import Network.Wai (Application, Request, Response, responseLBS, responseBuilder, requestMethod)
 import Network.Wai.Handler.Warp (run)
 import Network.HTTP.Types (Method, methodGet, status200, status405, status500, status503)
+
+import Data.String (IsString, fromString)
 
 -- Monad Control fun
 ------------------------------------------------------------------------------
@@ -132,6 +138,71 @@ resourceToWai :: Resource s IO -> s -> Application
 resourceToWai resource s req respond = do
     response <- eitherResponse req s (runResource resource)
     respond response
+
+-- Routing
+------------------------------------------------------------------------------
+
+defaultResource :: Resource Int IO
+defaultResource = Resource { allowedMethods    = myAllowedMethods
+                            , serviceAvailable  = myServiceAvailable
+                            , content           = myContent }
+
+(#>) :: (Routable a, Monad m) => a -> Resource s m -> RoutingSpec s m ()
+p #> r = tell [(toRoute p, r)]
+
+
+newtype RoutingSpec s m a = RoutingSpec { getRouter :: Writer [(Route, Resource s m)] a }
+    deriving (Functor, Applicative, Monad, MonadWriter [(Route, Resource s m)])
+
+addRoute r = tell [r]
+
+myRoutes :: RoutingSpec Int IO ()
+myRoutes = do
+    ("/" :: BoundOrUnbound) #> defaultResource
+    (("/woo" :: BoundOrUnbound) </> var) #> defaultResource
+
+
+newtype Route = Route { getRoute :: [BoundOrUnbound] } deriving (Show, Monoid)
+
+data BoundOrUnbound = Bound ByteString
+                    | Unbound
+                    | RestUnbound deriving (Show)
+
+instance IsString BoundOrUnbound where
+    fromString s = Bound (fromString s)
+
+(</>) :: (Routable a, Routable b) => a -> b -> Route
+a </> b = toRoute a <> toRoute b
+
+data Var = Var deriving (Show)
+data Star = Star deriving (Show)
+
+var :: Var
+var = Var
+
+star :: Star
+star = Star
+
+class Routable a where
+    toRoute :: a -> Route
+
+instance Routable Route where
+    toRoute = id
+
+instance Routable BoundOrUnbound where
+    toRoute b = Route [b]
+
+--instance Routable ByteString where
+--    toRoute s = Route [Bound s]
+
+instance Routable Var where
+    toRoute = const $ Route [Unbound]
+
+instance Routable Star where
+    toRoute = const $ Route [RestUnbound]
+
+route :: RoutingSpec s m () -> Resource s m
+route = undefined
 
 -- Resource examples ---------------------------------------------------------
 ------------------------------------------------------------------------------

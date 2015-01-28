@@ -25,7 +25,7 @@ module Main
 import Blaze.ByteString.Builder.Char.Utf8 (fromShow)
 
 import Control.Applicative (Applicative)
-import Control.Exception (Exception, IOException, catch)
+import Control.Exception.Lifted (Exception, IOException, catch, handle)
 import Control.Monad (unless)
 import Control.Monad.Base (MonadBase)
 import Control.Monad.IO.Class (MonadIO, liftIO)
@@ -43,9 +43,6 @@ import Network.HTTP.Types (Method, methodGet, status200, status405, status500, s
 
 -- Monad Control fun
 ------------------------------------------------------------------------------
-
-liftedCatch :: (MonadBaseControl IO m, Exception e) => m a -> (e -> m a) -> m a
-liftedCatch f h = control $ \runInIO -> catch (runInIO f) (runInIO . h)
 
 newtype Webmachine s m a =
     Webmachine { getWebmachine :: EitherT Response (RWST Request [Integer] s m) a }
@@ -86,7 +83,7 @@ modifyState :: (s -> s) -> Handler s m ()
 modifyState = modify
 
 finishWith :: Response -> Handler m s a
-finishWith res = Webmachine (left res)
+finishWith = Webmachine . left
 
 serverError :: Handler m s a
 serverError = finishWith (responseLBS status500 [] "")
@@ -99,7 +96,7 @@ runWebmachine req s w = do
     (e, _, _) <- runRWST (runEitherT (getWebmachine w)) req s
     return e
 
-data Resource s m=
+data Resource s m =
     Resource { allowedMethods   :: Handler s m [Method]
              , serviceAvailable :: Handler s m Bool
              , content          :: Handler s m Response
@@ -107,9 +104,7 @@ data Resource s m=
 
 -- | Grab whichever value 'a' is in Either
 both :: Either a a -> a
-both e = case e of
-    (Left a)    -> a
-    (Right a)   -> a
+both = either id id
 
 eitherResponse :: Monad m => Request -> s -> Handler s m Response -> m Response
 eitherResponse req s resource = do
@@ -121,7 +116,7 @@ runResource Resource{..} = do
     req <- request
 
     let catcher (_e :: IOException) = serverError
-    flip liftedCatch catcher $ do
+    handle catcher $ do
         -- bail out earlier if the request method is incorrect
         acceptableMethods <- allowedMethods
         unless (requestMethod req `elem` acceptableMethods) $ finishWith (responseLBS status405 [] "")

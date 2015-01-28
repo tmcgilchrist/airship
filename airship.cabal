@@ -21,6 +21,7 @@ executable airship
                       , blaze-builder == 0.3.3.*
                       , either == 4.3.3.*
                       , http-types == 0.8.5.*
+                      , lifted-base == 0.2.*
                       , monad-control >= 1.0
                       , mtl == 2.2.1.*
                       , transformers == 0.4.2.*

@@ -146,7 +146,7 @@ myServiceAvailable = do
     liftIO $ putStrLn "During service available"
     return True
 
-myAllowedMethods :: Handler m s [Method]
+myAllowedMethods :: Handler s m [Method]
 myAllowedMethods = return [methodGet]
 
 myContent :: Show s => Handler s m Response

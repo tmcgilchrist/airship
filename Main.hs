@@ -9,33 +9,21 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Main
-    ( Webmachine(..)
-    , Resource(..)
-    , request
-    , state
-    , putState
-    , modifyState
-    , finishWith
-    , main
-    , runWebmachine
-    , resourceToWai
-    , route
-    ) where
+module Main where
 
 import Blaze.ByteString.Builder.Char.Utf8 (fromShow)
-import Data.ByteString (ByteString(..))
+import Data.ByteString (ByteString)
 import Data.Monoid
 
 import Control.Applicative (Applicative)
-import Control.Exception.Lifted (Exception, IOException, catch, handle)
+import Control.Exception.Lifted (IOException, handle)
 import Control.Monad (unless)
 import Control.Monad.Base (MonadBase)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Reader.Class (MonadReader, ask)
 import Control.Monad.State.Class (MonadState, get, put, modify)
 import Control.Monad.Trans.Class (MonadTrans(..))
-import Control.Monad.Trans.Control (ComposeSt, MonadBaseControl(..), MonadTransControl(..), control, defaultLiftBaseWith, defaultRestoreM)
+import Control.Monad.Trans.Control (ComposeSt, MonadBaseControl(..), MonadTransControl(..), defaultLiftBaseWith, defaultRestoreM)
 import Control.Monad.Trans.Either (EitherT(..), runEitherT, left)
 import Control.Monad.Trans.RWS.Strict (RWST(..), runRWST)
 import Control.Monad.Writer.Class (MonadWriter, tell)
@@ -154,8 +142,6 @@ p #> r = tell [(toRoute p, r)]
 newtype RoutingSpec s m a = RoutingSpec { getRouter :: Writer [(Route, Resource s m)] a }
     deriving (Functor, Applicative, Monad, MonadWriter [(Route, Resource s m)])
 
-addRoute r = tell [r]
-
 myRoutes :: RoutingSpec Int IO ()
 myRoutes = do
     ("/" :: BoundOrUnbound) #> defaultResource
@@ -201,9 +187,7 @@ instance Routable Star where
     toRoute = const $ Route [RestUnbound]
 
 route :: Resource s m -> RoutingSpec s m () -> Resource s m
-route defaultResponse routes = _hole $ do
-    routes
-    "/" #> defaultResponse
+route _defaultResponse _routes = undefined
 
 -- Resource examples ---------------------------------------------------------
 ------------------------------------------------------------------------------

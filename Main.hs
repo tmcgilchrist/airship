@@ -135,8 +135,8 @@ defaultResource = Resource { allowedMethods    = myAllowedMethods
                             , serviceAvailable  = myServiceAvailable
                             , content           = myContent }
 
-(#>) :: (Routable a, Monad m) => a -> Resource s m -> RoutingSpec s m ()
-p #> r = tell [(toRoute p, r)]
+(#>) :: Monad m => Route -> Resource s m -> RoutingSpec s m ()
+p #> r = tell [(p, r)]
 
 
 newtype RoutingSpec s m a = RoutingSpec { getRouter :: Writer [(Route, Resource s m)] a }
@@ -144,8 +144,8 @@ newtype RoutingSpec s m a = RoutingSpec { getRouter :: Writer [(Route, Resource 
 
 myRoutes :: RoutingSpec Int IO ()
 myRoutes = do
-    ("/" :: BoundOrUnbound) #> defaultResource
-    (("/woo" :: BoundOrUnbound) </> var) #> defaultResource
+    "/"             #> defaultResource
+    "/woo" </> var  #> defaultResource
 
 newtype Route = Route { getRoute :: [BoundOrUnbound] } deriving (Show, Monoid)
 
@@ -153,38 +153,17 @@ data BoundOrUnbound = Bound ByteString
                     | Unbound
                     | RestUnbound deriving (Show)
 
-instance IsString BoundOrUnbound where
-    fromString s = Bound (fromString s)
+instance IsString Route where
+    fromString s = Route [Bound (fromString s)]
 
-(</>) :: (Routable a, Routable b) => a -> b -> Route
-a </> b = toRoute a <> toRoute b
+(</>) :: Route -> Route -> Route
+(</>) = (<>)
 
-data Var = Var deriving (Show)
-data Star = Star deriving (Show)
+var :: Route
+var = Route [Unbound]
 
-var :: Var
-var = Var
-
-star :: Star
-star = Star
-
-class Routable a where
-    toRoute :: a -> Route
-
-instance Routable Route where
-    toRoute = id
-
-instance Routable BoundOrUnbound where
-    toRoute b = Route [b]
-
---instance Routable ByteString where
---    toRoute s = Route [Bound s]
-
-instance Routable Var where
-    toRoute = const $ Route [Unbound]
-
-instance Routable Star where
-    toRoute = const $ Route [RestUnbound]
+star :: Route
+star = Route [RestUnbound]
 
 route :: Resource s m -> RoutingSpec s m () -> Resource s m
 route _defaultResponse _routes = undefined

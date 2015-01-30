@@ -15,6 +15,7 @@ import Blaze.ByteString.Builder.Char.Utf8 (fromShow)
 import Data.Monoid
 import Data.Foldable (foldr')
 import Data.Text (Text)
+import Data.Maybe (isJust)
 
 import Control.Applicative (Applicative)
 import Control.Exception.Lifted (IOException, handle)
@@ -168,25 +169,25 @@ route routes pInfo = foldr' (matchRoute pInfo) defaultResource routes
 
 matchRoute :: [Text] -> (Route, Resource s m) -> Resource s m -> Resource s m
 matchRoute paths (rSpec, resource) previousMatch =
-    if matchesRoute paths rSpec
+    if isJust (matchesRoute paths rSpec)
     then resource
     else previousMatch
 
-matchesRoute :: [Text] -> Route -> Bool
-matchesRoute paths spec = matchesRoute' paths (getRoute spec) where
+matchesRoute :: [Text] -> Route -> Maybe [Text]
+matchesRoute paths spec = matchesRoute' paths (getRoute spec) [] where
     -- recursion is over, and we never bailed out to return false, so we match
-    matchesRoute' []        []              = True
+    matchesRoute' []        []              acc     = Just acc
     -- there is an extra part of the path left, and we don't have more matching
-    matchesRoute' (_ph:_ptl) []             = False
+    matchesRoute' (_ph:_ptl) []             _       = Nothing
     -- we match whatever is left, so it doesn't matter what's left in the path
-    matchesRoute' _         (RestUnbound:_) = True
+    matchesRoute' p         (RestUnbound:_) acc     = Just (acc ++ p)
     -- we match a specific string, and it matches this part of the path,
     -- so recur
-    matchesRoute' (ph:ptl)  (Bound sh:stt)
+    matchesRoute' (ph:ptl)  (Bound sh:stt)  acc
         | ph == sh
-                                            = matchesRoute' ptl stt
-    matchesRoute' (_ph:ptl) (Unbound:stt)   = matchesRoute' ptl stt
-    matchesRoute' _ _ = False
+                                                    = matchesRoute' ptl stt acc
+    matchesRoute' (ph:ptl)  (Unbound:stt)   acc     = matchesRoute' ptl stt (acc ++ [ph])
+    matchesRoute' _         _               _acc    = Nothing
 
 resourceToWai :: RoutingSpec Integer IO () -> Integer -> Application
 resourceToWai routes s req respond = do

@@ -12,8 +12,9 @@
 module Main where
 
 import Blaze.ByteString.Builder.Char.Utf8 (fromShow)
-import Data.ByteString (ByteString)
 import Data.Monoid
+import Data.Foldable (foldr')
+import Data.Text (Text)
 
 import Control.Applicative (Applicative)
 import Control.Exception.Lifted (IOException, handle)
@@ -27,9 +28,10 @@ import Control.Monad.Trans.Control (ComposeSt, MonadBaseControl(..), MonadTransC
 import Control.Monad.Trans.Either (EitherT(..), runEitherT, left)
 import Control.Monad.Trans.RWS.Strict (RWST(..), runRWST)
 import Control.Monad.Writer.Class (MonadWriter, tell)
-import Control.Monad.Writer (Writer)
+import Control.Monad.Writer (Writer, execWriter)
 
-import Network.Wai (Application, Request, Response, responseLBS, responseBuilder, requestMethod)
+import Network.Wai (Application, Request, Response, pathInfo, responseLBS,
+                    responseBuilder, requestMethod)
 import Network.Wai.Handler.Warp (run)
 import Network.HTTP.Types (Method, methodGet, status200, status405, status500, status503)
 
@@ -122,18 +124,14 @@ runResource Resource{..} = do
     -- otherwise return the normal response
     content
 
-resourceToWai :: Resource s IO -> s -> Application
-resourceToWai resource s req respond = do
-    response <- eitherResponse req s (runResource resource)
-    respond response
-
 -- Routing
 ------------------------------------------------------------------------------
 
-defaultResource :: Resource Int IO
+defaultResource :: Resource Integer IO
 defaultResource = Resource { allowedMethods    = myAllowedMethods
-                            , serviceAvailable  = myServiceAvailable
-                            , content           = myContent }
+                           , serviceAvailable  = myServiceAvailable
+                           , content           = myContent
+                           }
 
 (#>) :: Monad m => Route -> Resource s m -> RoutingSpec s m ()
 p #> r = tell [(p, r)]
@@ -142,14 +140,14 @@ p #> r = tell [(p, r)]
 newtype RoutingSpec s m a = RoutingSpec { getRouter :: Writer [(Route, Resource s m)] a }
     deriving (Functor, Applicative, Monad, MonadWriter [(Route, Resource s m)])
 
-myRoutes :: RoutingSpec Int IO ()
+myRoutes :: RoutingSpec Integer IO ()
 myRoutes = do
     "/"             #> defaultResource
     "/woo" </> var  #> defaultResource
 
 newtype Route = Route { getRoute :: [BoundOrUnbound] } deriving (Show, Monoid)
 
-data BoundOrUnbound = Bound ByteString
+data BoundOrUnbound = Bound Text
                     | Unbound
                     | RestUnbound deriving (Show)
 
@@ -165,8 +163,39 @@ var = Route [Unbound]
 star :: Route
 star = Route [RestUnbound]
 
-route :: Resource s m -> RoutingSpec s m () -> Resource s m
-route _defaultResponse _routes = undefined
+route :: [(Route, Resource Integer IO)] -> [Text] -> Resource Integer IO
+route routes pInfo = foldr' (matchRoute pInfo) defaultResource routes
+
+matchRoute :: [Text] -> (Route, Resource s m) -> Resource s m -> Resource s m
+matchRoute paths (rSpec, resource) previousMatch =
+    if matchesRoute paths rSpec
+    then resource
+    else previousMatch
+
+matchesRoute :: [Text] -> Route -> Bool
+matchesRoute paths spec = matchesRoute' paths (getRoute spec) where
+    -- recursion is over, and we never bailed out to return false, so we match
+    matchesRoute' []        []              = True
+    -- there is an extra part of the path left, and we don't have more matching
+    matchesRoute' (_ph:_ptl) []             = False
+    -- we match whatever is left, so it doesn't matter what's left in the path
+    matchesRoute' _         (RestUnbound:_) = True
+    -- we match a specific string, and it matches this part of the path,
+    -- so recur
+    matchesRoute' (ph:ptl)  (Bound sh:stt)
+        | ph == sh
+                                            = matchesRoute' ptl stt
+    matchesRoute' (_ph:ptl) (Unbound:stt)   = matchesRoute' ptl stt
+    matchesRoute' _ _ = False
+
+resourceToWai :: RoutingSpec Integer IO () -> Integer -> Application
+resourceToWai routes s req respond = do
+    let routeMapping = execWriter (getRouter routes)
+        pInfo = pathInfo req
+        resource = route routeMapping pInfo
+    response <- eitherResponse req s (runResource resource)
+    respond response
+
 
 -- Resource examples ---------------------------------------------------------
 ------------------------------------------------------------------------------
@@ -190,8 +219,6 @@ main :: IO ()
 main = do
     let port = 3000
         s = 5 :: Integer
-        resource = Resource { allowedMethods    = myAllowedMethods
-                            , serviceAvailable  = myServiceAvailable
-                            , content           = myContent }
+        routes = myRoutes
 
-    run port (resourceToWai resource s)
+    run port (resourceToWai routes s)

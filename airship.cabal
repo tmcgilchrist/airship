@@ -25,6 +25,7 @@ executable airship
                       , lifted-base == 0.2.*
                       , monad-control >= 1.0
                       , mtl == 2.2.1.*
+                      , text
                       , transformers == 0.4.2.*
                       , transformers-base == 0.4.3.*
                       , wai == 3.0.2.*

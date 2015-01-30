@@ -28,5 +28,6 @@ executable airship
                       , text
                       , transformers == 0.4.2.*
                       , transformers-base == 0.4.3.*
+                      , unordered-containers
                       , wai == 3.0.2.*
                       , warp == 3.0.5.*

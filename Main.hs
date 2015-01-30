@@ -16,6 +16,7 @@ import Data.Monoid
 import Data.Foldable (foldr')
 import Data.Text (Text)
 import Data.Maybe (isJust)
+import Data.HashMap.Strict (HashMap, empty, insert)
 
 import Control.Applicative (Applicative)
 import Control.Exception.Lifted (IOException, handle)
@@ -143,13 +144,13 @@ newtype RoutingSpec s m a = RoutingSpec { getRouter :: Writer [(Route, Resource 
 
 myRoutes :: RoutingSpec Integer IO ()
 myRoutes = do
-    "/"             #> defaultResource
-    "/woo" </> var  #> defaultResource
+    "/"                         #> defaultResource
+    "/account" </> var "name"   #> defaultResource
 
 newtype Route = Route { getRoute :: [BoundOrUnbound] } deriving (Show, Monoid)
 
 data BoundOrUnbound = Bound Text
-                    | Unbound
+                    | Var Text
                     | RestUnbound deriving (Show)
 
 instance IsString Route where
@@ -158,8 +159,8 @@ instance IsString Route where
 (</>) :: Route -> Route -> Route
 (</>) = (<>)
 
-var :: Route
-var = Route [Unbound]
+var :: Text -> Route
+var t = Route [Var t]
 
 star :: Route
 star = Route [RestUnbound]
@@ -173,20 +174,20 @@ matchRoute paths (rSpec, resource) previousMatch =
     then resource
     else previousMatch
 
-matchesRoute :: [Text] -> Route -> Maybe [Text]
-matchesRoute paths spec = matchesRoute' paths (getRoute spec) [] where
+matchesRoute :: [Text] -> Route -> Maybe (HashMap Text Text)
+matchesRoute paths spec = matchesRoute' paths (getRoute spec) empty where
     -- recursion is over, and we never bailed out to return false, so we match
     matchesRoute' []        []              acc     = Just acc
     -- there is an extra part of the path left, and we don't have more matching
     matchesRoute' (_ph:_ptl) []             _       = Nothing
     -- we match whatever is left, so it doesn't matter what's left in the path
-    matchesRoute' p         (RestUnbound:_) acc     = Just (acc ++ p)
+    matchesRoute' _         (RestUnbound:_) acc     = Just acc
     -- we match a specific string, and it matches this part of the path,
     -- so recur
     matchesRoute' (ph:ptl)  (Bound sh:stt)  acc
         | ph == sh
                                                     = matchesRoute' ptl stt acc
-    matchesRoute' (ph:ptl)  (Unbound:stt)   acc     = matchesRoute' ptl stt (acc ++ [ph])
+    matchesRoute' (ph:ptl)  (Var t:stt)     acc     = matchesRoute' ptl stt (insert t ph acc)
     matchesRoute' _         _               _acc    = Nothing
 
 resourceToWai :: RoutingSpec Integer IO () -> Integer -> Application

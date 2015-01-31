@@ -144,8 +144,10 @@ newtype RoutingSpec s m a = RoutingSpec { getRouter :: Writer [(Route, Resource 
 
 myRoutes :: RoutingSpec Integer IO ()
 myRoutes = do
-    "/"                         #> defaultResource
-    "/account" </> var "name"   #> defaultResource
+    root                        #> defaultResource { content = return $ responseLBS status200 [] "root resource" }
+    "account"                   #> defaultResource { content = return $ responseLBS status200 [] "account resource 1" }
+    "account"                   #> defaultResource { content = return $ responseLBS status200 [] "account resource 2" }
+    "account" </> var "name"    #> defaultResource { content = return $ responseLBS status200 [] "account sub-resource" }
 
 newtype Route = Route { getRoute :: [BoundOrUnbound] } deriving (Show, Monoid)
 
@@ -159,16 +161,19 @@ instance IsString Route where
 (</>) :: Route -> Route -> Route
 (</>) = (<>)
 
+root :: Route
+root = Route []
+
 var :: Text -> Route
 var t = Route [Var t]
 
 star :: Route
 star = Route [RestUnbound]
 
-route :: [(Route, Resource Integer IO)] -> [Text] -> Resource Integer IO
-route routes pInfo = foldr' (matchRoute pInfo) defaultResource routes
+route :: [(Route, a)] -> [Text] -> a -> a
+route routes pInfo resource404 = foldr' (matchRoute pInfo) resource404 routes
 
-matchRoute :: [Text] -> (Route, Resource s m) -> Resource s m -> Resource s m
+matchRoute :: [Text] -> (Route, a) -> a -> a
 matchRoute paths (rSpec, resource) previousMatch =
     if isJust (matchesRoute paths rSpec)
     then resource
@@ -190,11 +195,11 @@ matchesRoute paths spec = matchesRoute' paths (getRoute spec) empty where
     matchesRoute' (ph:ptl)  (Var t:stt)     acc     = matchesRoute' ptl stt (insert t ph acc)
     matchesRoute' _         _               _acc    = Nothing
 
-resourceToWai :: RoutingSpec Integer IO () -> Integer -> Application
-resourceToWai routes s req respond = do
+resourceToWai :: RoutingSpec s IO () -> Resource s IO -> s -> Application
+resourceToWai routes resource404 s req respond = do
     let routeMapping = execWriter (getRouter routes)
         pInfo = pathInfo req
-        resource = route routeMapping pInfo
+        resource = route routeMapping pInfo resource404
     response <- eitherResponse req s (runResource resource)
     respond response
 
@@ -223,4 +228,5 @@ main = do
         s = 5 :: Integer
         routes = myRoutes
 
-    run port (resourceToWai routes s)
+    putStrLn "Listening on port 3000"
+    run port (resourceToWai routes defaultResource s)

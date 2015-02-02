@@ -2,7 +2,7 @@
 
 module Main where
 
-import Airship
+import Airship (resourceToWai)
 import Airship.Resource (Resource(..), defaultResource)
 import Airship.Route (RoutingSpec, (#>), (</>), var, root)
 import qualified Data.ByteString.Lazy as LB

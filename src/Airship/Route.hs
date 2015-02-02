@@ -1,7 +1,16 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Airship.Route where
+module Airship.Route
+    ( RoutingSpec
+    , runRouter
+    , (#>)
+    , (</>)
+    , root
+    , var
+    , star
+    , route
+    ) where
 
 import Airship.Resource
 
@@ -12,14 +21,10 @@ import Data.Maybe (isJust)
 import Data.HashMap.Strict (HashMap, empty, insert)
 
 import Control.Applicative (Applicative)
+import Control.Monad.Writer (Writer, execWriter)
 import Control.Monad.Writer.Class (MonadWriter, tell)
-import Control.Monad.Writer (Writer)
 
 import Data.String (IsString, fromString)
-
-
-(#>) :: Monad m => Route -> Resource s m -> RoutingSpec s m ()
-p #> r = tell [(p, r)]
 
 newtype RoutingSpec s m a = RoutingSpec { getRouter :: Writer [(Route, Resource s m)] a }
     deriving (Functor, Applicative, Monad, MonadWriter [(Route, Resource s m)])
@@ -32,6 +37,12 @@ data BoundOrUnbound = Bound Text
 
 instance IsString Route where
     fromString s = Route [Bound (fromString s)]
+
+runRouter :: RoutingSpec s m a -> [(Route, Resource s m)]
+runRouter routes = execWriter (getRouter routes)
+
+(#>) :: Monad m => Route -> Resource s m -> RoutingSpec s m ()
+p #> r = tell [(p, r)]
 
 (</>) :: Route -> Route -> Route
 (</>) = (<>)

@@ -9,7 +9,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Main where
+module Airship where
 
 import Blaze.ByteString.Builder.Char.Utf8 (fromShow)
 import qualified Data.ByteString.Lazy as LB
@@ -35,7 +35,6 @@ import Control.Monad.Writer (Writer, execWriter)
 
 import Network.Wai (Application, Request, Response, pathInfo, responseLBS,
                     responseBuilder, requestMethod)
-import Network.Wai.Handler.Warp (run)
 import Network.HTTP.Types (Method, methodGet, status200, status405, status500, status503)
 
 import Data.String (IsString, fromString)
@@ -225,12 +224,3 @@ myContent = do
     s <- get
     let myS = fromShow s
     return $ responseBuilder status200 [] myS
-
-main :: IO ()
-main = do
-    let port = 3000
-        s = 5 :: Integer
-        routes = myRoutes
-
-    putStrLn "Listening on port 3000"
-    run port (resourceToWai routes defaultResource s)

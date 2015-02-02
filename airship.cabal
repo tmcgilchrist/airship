@@ -21,6 +21,7 @@ executable airship
   build-depends:        base >=4.7 && <4.8
                       , airship
                       , bytestring
+                      , http-types == 0.8.5.*
                       , wai == 3.0.2.*
                       , warp == 3.0.5.*
 
@@ -29,6 +30,9 @@ library
   hs-source-dirs: src
   exposed-modules:   Airship
                    , Airship.Types
+                   , Airship.Resource
+                   , Airship.Route
+
   build-depends:        base >=4.7 && <4.8
                       , blaze-builder == 0.3.3.*
                       , bytestring

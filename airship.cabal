@@ -21,7 +21,7 @@ executable airship
   build-depends:        base >=4.7 && <4.8
                       , airship
                       , bytestring
-                      , http-types == 0.8.5.*
+                      , http-types >= 0.7
                       , wai == 3.0.2.*
                       , warp == 3.0.5.*
 
@@ -34,15 +34,15 @@ library
                    , Airship.Route
 
   build-depends:        base >=4.7 && <4.8
-                      , blaze-builder == 0.3.3.*
+                      , blaze-builder == 0.3.*
                       , bytestring
-                      , either == 4.3.3.*
-                      , http-types == 0.8.5.*
+                      , either == 4.3.*
+                      , http-types >= 0.7
                       , lifted-base == 0.2.*
                       , monad-control >= 1.0
-                      , mtl == 2.2.1.*
+                      , mtl == 2.2.*
                       , text
                       , transformers == 0.4.2.*
                       , transformers-base == 0.4.3.*
                       , unordered-containers
-                      , wai == 3.0.2.*
+                      , wai == 3.0.*

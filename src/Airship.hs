@@ -11,6 +11,8 @@
 
 module Airship where
 
+import Airship.Types
+
 import Blaze.ByteString.Builder.Char.Utf8 (fromShow)
 import qualified Data.ByteString.Lazy as LB
 import Data.Monoid
@@ -22,14 +24,10 @@ import Data.HashMap.Strict (HashMap, empty, insert)
 import Control.Applicative (Applicative)
 import Control.Exception.Lifted (IOException, handle)
 import Control.Monad (unless)
-import Control.Monad.Base (MonadBase)
-import Control.Monad.IO.Class (MonadIO, liftIO)
-import Control.Monad.Reader.Class (MonadReader, ask)
-import Control.Monad.State.Class (MonadState, get, put, modify)
-import Control.Monad.Trans.Class (MonadTrans(..))
-import Control.Monad.Trans.Control (ComposeSt, MonadBaseControl(..), MonadTransControl(..), defaultLiftBaseWith, defaultRestoreM)
-import Control.Monad.Trans.Either (EitherT(..), runEitherT, left)
-import Control.Monad.Trans.RWS.Strict (RWST(..), runRWST)
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Reader.Class (ask)
+import Control.Monad.State.Class (get, put, modify)
+import Control.Monad.Trans.Either (left)
 import Control.Monad.Writer.Class (MonadWriter, tell)
 import Control.Monad.Writer (Writer, execWriter)
 
@@ -42,28 +40,6 @@ import Data.String (IsString, fromString)
 -- Monad Control fun
 ------------------------------------------------------------------------------
 
-newtype Webmachine s m a =
-    Webmachine { getWebmachine :: EitherT Response (RWST Request [Integer] s m) a }
-        deriving (Functor, Applicative, Monad, MonadIO, MonadBase b,
-                  MonadReader Request,
-                  MonadWriter [Integer],
-                  MonadState s)
-
-instance MonadTrans (Webmachine s) where
-    lift = Webmachine . EitherT . (>>= return . Right) . lift
-
-instance MonadTransControl (Webmachine s) where
-    type StT (Webmachine s) a = StT (RWST Request [Integer] s) (StT (EitherT Response) a)
-    liftWith f = Webmachine . liftWith $ \r -> liftWith $ \r' -> f $ r' . r . getWebmachine
-    restoreT = Webmachine . restoreT . restoreT
-
-instance MonadBaseControl b m => MonadBaseControl b (Webmachine s m) where
-  type StM (Webmachine s m) a = ComposeSt (Webmachine s) m a
-  liftBaseWith = defaultLiftBaseWith
-  restoreM  = defaultRestoreM
-
--- TODO fix the order of args to handler
-type Handler s m a = Monad m => Webmachine s m a
 
 -- Functions inside the Webmachine Monad -------------------------------------
 ------------------------------------------------------------------------------
@@ -88,12 +64,6 @@ serverError = finishWith (responseLBS status500 [] "")
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
-
-runWebmachine :: Monad m => Request -> s -> Handler s m a -> m (Either Response a)
-runWebmachine req s w = do
-    (e, _, _) <- runRWST (runEitherT (getWebmachine w)) req s
-    return e
-
 data Resource s m =
     Resource { allowedMethods   :: Handler s m [Method]
              , serviceAvailable :: Handler s m Bool

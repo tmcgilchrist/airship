@@ -12,6 +12,7 @@
 module Main where
 
 import Blaze.ByteString.Builder.Char.Utf8 (fromShow)
+import qualified Data.ByteString.Lazy as LB
 import Data.Monoid
 import Data.Foldable (foldr')
 import Data.Text (Text)
@@ -142,12 +143,15 @@ p #> r = tell [(p, r)]
 newtype RoutingSpec s m a = RoutingSpec { getRouter :: Writer [(Route, Resource s m)] a }
     deriving (Functor, Applicative, Monad, MonadWriter [(Route, Resource s m)])
 
+resourceWithBody :: LB.ByteString -> Resource Integer IO
+resourceWithBody b = defaultResource{ content = return $ responseLBS status200 [] b }
+
 myRoutes :: RoutingSpec Integer IO ()
 myRoutes = do
-    root                        #> defaultResource { content = return $ responseLBS status200 [] "root resource" }
-    "account"                   #> defaultResource { content = return $ responseLBS status200 [] "account resource 1" }
-    "account"                   #> defaultResource { content = return $ responseLBS status200 [] "account resource 2" }
-    "account" </> var "name"    #> defaultResource { content = return $ responseLBS status200 [] "account sub-resource" }
+    root                        #> resourceWithBody "root resource"
+    "account"                   #> resourceWithBody "account resource"
+    "♥"                         #> resourceWithBody "heart resource"
+    "account" </> var "name"    #> resourceWithBody "account subresource"
 
 newtype Route = Route { getRoute :: [BoundOrUnbound] } deriving (Show, Monoid)
 

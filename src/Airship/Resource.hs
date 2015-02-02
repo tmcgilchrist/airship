@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ImpredicativeTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -11,21 +12,35 @@ module Airship.Resource
     , defaultResource
     ) where
 
-import Airship.Types (Handler, finishWith, request, state)
-import Blaze.ByteString.Builder.Char.Utf8 (fromShow)
+import Airship.Types (Handler, finishWith, request)
 
 import Control.Exception.Lifted (IOException, handle)
 import Control.Monad (unless)
-import Control.Monad.IO.Class (liftIO)
 
-import Network.Wai (Response, responseLBS,
-                    responseBuilder, requestMethod)
+import Data.Text (Text)
+
+import Network.Wai (Response, responseLBS, requestMethod)
 import Network.HTTP.Types (Method, methodGet, status200, status405, status500, status503)
 
 data Resource s m =
-    Resource { allowedMethods   :: Handler s m [Method]
-             , serviceAvailable :: Handler s m Bool
-             , content          :: Handler s m Response
+    Resource { allowedMethods           :: Handler s m [Method]
+             , serviceAvailable         :: Handler s m Bool
+             , resourceExists           :: Handler s m Bool
+             , isAuthorized             :: Handler s m Bool
+             , forbidden                :: Handler s m Bool
+             , allowMissingPost         :: Handler s m Bool
+             , malformedRequest         :: Handler s m Bool
+             , uriTooLong               :: Handler s m Bool
+             , knownContentType         :: Handler s m Bool
+             , validContentHeaders      :: Handler s m Bool
+             , validEntityLength        :: Handler s m Bool
+             , deleteResource           :: Handler s m Bool
+             , deleteCompleted          :: Handler s m Bool
+             , postIsCreate             :: Handler s m Bool
+             , createPath               :: Handler s m (Maybe Text)
+             , processPost              :: Handler s m Bool
+             , contentTypesProvided     :: Handler s m [Handler s m Response]
+             , content                  :: Handler s m Response
              }
 
 
@@ -50,26 +65,22 @@ runResource Resource{..} = do
     content
 
 defaultResource :: Resource Integer IO
-defaultResource = Resource { allowedMethods    = myAllowedMethods
-                           , serviceAvailable  = myServiceAvailable
-                           , content           = myContent
+defaultResource = Resource { allowedMethods         = return [methodGet]
+                           , serviceAvailable       = return True
+                           , isAuthorized           = return True
+                           , resourceExists         = return True
+                           , forbidden              = return False
+                           , allowMissingPost       = return False
+                           , malformedRequest       = return False
+                           , uriTooLong             = return False
+                           , knownContentType       = return True
+                           , validContentHeaders    = return True
+                           , validEntityLength      = return True
+                           , deleteResource         = return False
+                           , deleteCompleted        = return False
+                           , postIsCreate           = return False
+                           , createPath             = return Nothing
+                           , processPost            = return False
+                           , contentTypesProvided   = return []
+                           , content                = return $ responseLBS status200 [] "Hello, world"
                            }
-
-
--- Resource examples ---------------------------------------------------------
-------------------------------------------------------------------------------
-
-myServiceAvailable :: Handler s IO Bool
-myServiceAvailable = do
-    liftIO $ putStrLn "During service available"
-    return True
-
-myAllowedMethods :: Handler s m [Method]
-myAllowedMethods = return [methodGet]
-
-myContent :: Show s => Handler s m Response
-myContent = do
-    _req <- request
-    s <- state
-    let myS = fromShow s
-    return $ responseBuilder status200 [] myS

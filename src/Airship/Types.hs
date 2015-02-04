@@ -18,11 +18,12 @@ module Airship.Types
     , putState
     , modifyState
     , finishWith
+    , body
     ) where
 
 import Control.Applicative (Applicative)
 import Control.Monad.Base (MonadBase)
-import Control.Monad.IO.Class (MonadIO)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Reader.Class (MonadReader, ask)
 import Control.Monad.State.Class (MonadState, get, put, modify)
 import Control.Monad.Trans.Class (MonadTrans(..))
@@ -33,7 +34,14 @@ import Control.Monad.Trans.Either (EitherT(..), runEitherT, left)
 import Control.Monad.Trans.RWS.Strict (RWST(..), runRWST)
 import Control.Monad.Writer.Class (MonadWriter)
 
-import Network.Wai (Request, Response)
+import           Data.ByteString (ByteString)
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Builder as B
+import qualified Data.ByteString.Lazy as Lazy
+
+import           Data.Monoid
+
+import Network.Wai (Request, Response, requestBody)
 
 newtype Webmachine s m a =
     Webmachine { getWebmachine :: EitherT Response (RWST Request [Integer] s m) a }
@@ -68,6 +76,18 @@ state = get
 
 putState :: s -> Handler s m ()
 putState = put
+
+body :: MonadIO m => Handler s m Lazy.ByteString
+body = do
+  req <- request
+  liftIO $ go mempty (requestBody req)
+  where
+    go :: B.Builder -> IO ByteString -> IO Lazy.ByteString
+    go builder reader = do
+      chunk <- reader
+      if B.null chunk
+         then return (B.toLazyByteString builder)
+         else go (builder <> B.byteString chunk) reader
 
 modifyState :: (s -> s) -> Handler s m ()
 modifyState = modify

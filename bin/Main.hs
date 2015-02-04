@@ -3,15 +3,15 @@
 module Main where
 
 import Airship (resourceToWai)
-import Airship.Resource (Resource(..), defaultResource)
+import Airship.Resource (Resource(..), defaultResource, singletonContentType)
 import Airship.Route (RoutingSpec, (#>), (</>), var, root)
-import qualified Data.ByteString.Lazy as LB
-import Network.Wai.Handler.Warp (run)
-import Network.Wai (responseLBS)
-import Network.HTTP.Types (status200)
 
-resourceWithBody :: LB.ByteString -> Resource Integer IO
-resourceWithBody b = defaultResource{ content = return $ responseLBS status200 [] b }
+import Data.Text(Text)
+
+import Network.Wai.Handler.Warp (run)
+
+resourceWithBody :: Text -> Resource Integer IO
+resourceWithBody t = defaultResource{ contentTypesProvided = singletonContentType "text/html" t }
 
 myRoutes :: RoutingSpec Integer IO ()
 myRoutes = do

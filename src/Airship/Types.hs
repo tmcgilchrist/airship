@@ -57,6 +57,7 @@ instance MonadBaseControl b m => MonadBaseControl b (Webmachine s m) where
 
 type Handler s m a = Monad m => Webmachine s m a
 
+
 -- Functions inside the Webmachine Monad -------------------------------------
 ------------------------------------------------------------------------------
 request :: Handler m s Request

@@ -15,19 +15,19 @@ module Airship.Resource
 
 import Airship.Types (Webmachine, Handler, finishWith, request)
 
-import Control.Exception.Lifted (IOException, handle)
-import Control.Monad (unless)
+import Control.Monad (unless, when)
 
 import Data.HashMap.Strict (HashMap, singleton)
 import Data.Text (Text)
 import Blaze.ByteString.Builder.Html.Utf8 (fromHtmlEscapedText)
 
 import Network.Wai (Response, responseLBS, responseBuilder, requestMethod)
-import Network.HTTP.Types (Method, methodGet, status200, status405, status500, status503)
+import Network.HTTP.Types
 
 data Resource s m =
     Resource { allowedMethods           :: Handler s m [Method]
              , serviceAvailable         :: Handler s m Bool
+             , implemented              :: Handler s m Bool
              , resourceExists           :: Handler s m Bool
              , isAuthorized             :: Handler s m Bool
              , forbidden                :: Handler s m Bool
@@ -36,7 +36,7 @@ data Resource s m =
              , uriTooLong               :: Handler s m Bool
              , knownContentType         :: Handler s m Bool
              , validContentHeaders      :: Handler s m Bool
-             , validEntityLength        :: Handler s m Bool
+             , entityTooLarge           :: Handler s m Bool
              , deleteResource           :: Handler s m Bool
              , deleteCompleted          :: Handler s m Bool
              , postIsCreate             :: Handler s m Bool
@@ -56,22 +56,55 @@ runResource :: Resource s IO -> Handler s IO Response
 runResource Resource{..} = do
     req <- request
 
-    let catcher (_e :: IOException) = serverError
-    handle catcher $ do
-        -- bail out earlier if the request method is incorrect
-        acceptableMethods <- allowedMethods
-        unless (requestMethod req `elem` acceptableMethods) $ finishWith (responseLBS status405 [] "")
+    let finish s r = finishWith (responseLBS s [] r)
 
-    -- bail out early if the service is not available
     available <- serviceAvailable
-    unless available $ finishWith (responseLBS status503 [] "")
+    unless available $
+      finish status503 "503 Service Unavailable"
 
-    -- otherwise return the normal response
-    undefined
+    impl <- implemented
+    unless impl $
+      finish status501 "501 Not Implemented"
+
+    tooLong <- uriTooLong
+    when tooLong $
+      finish status414 "414 Request URI Too Long"
+
+    acceptableMethods <- allowedMethods
+    unless (requestMethod req `elem` acceptableMethods) $
+      finish status405 "405 Method Not Allowed"
+
+    malformed <- malformedRequest
+    when malformed $
+      finish status400 "400 Bad Request"
+
+    authorized <- isAuthorized
+    unless authorized $ 
+      finish status401 "401 Unauthorized"
+
+    can't <- forbidden
+    when can't $ 
+      finish status403 "403 Forbidden"
+
+    acceptableContent <- validContentHeaders
+    unless acceptableContent $
+      finish status501 "501 Not Implemented"
+
+    acceptableType <- knownContentType
+    unless acceptableType $
+      finish status415 "415 Unsupported Media Type"
+
+    tooLarge <- entityTooLarge
+    when tooLarge $
+      finish status413 "413 Request Entity Too Large"
+
+    finish status200 "200 OK"
+    
 
 defaultResource :: Resource s m
 defaultResource = Resource { allowedMethods         = return [methodGet]
                            , serviceAvailable       = return True
+                           , implemented            = return True
                            , isAuthorized           = return True
                            , resourceExists         = return True
                            , forbidden              = return False
@@ -80,7 +113,7 @@ defaultResource = Resource { allowedMethods         = return [methodGet]
                            , uriTooLong             = return False
                            , knownContentType       = return True
                            , validContentHeaders    = return True
-                           , validEntityLength      = return True
+                           , entityTooLarge         = return False
                            , deleteResource         = return False
                            , deleteCompleted        = return False
                            , postIsCreate           = return False

@@ -11,14 +11,16 @@
 module Airship.Types
     ( Webmachine
     , Handler
+    , Response(..)
+    , ResponseBody(..)
     , eitherResponse
     , runWebmachine
     , request
-    , state
+    , getState
     , putState
     , modifyState
-    , responseHeaders
-    , responseBody
+    , getResponseHeaders
+    , getResponseBody
     , halt
     , finishWith
     ) where
@@ -26,29 +28,43 @@ module Airship.Types
 import Blaze.ByteString.Builder (Builder)
 
 import Control.Applicative (Applicative, (<$>))
+import Control.Monad (liftM)
 import Control.Monad.Base (MonadBase)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Reader.Class (MonadReader, ask)
 import Control.Monad.State.Class (MonadState, get, modify)
 import Control.Monad.Trans.Class (MonadTrans(..))
-import Control.Monad.Trans.Control (ComposeSt, MonadBaseControl(..),
-                                    MonadTransControl(..), defaultLiftBaseWith,
-                                    defaultRestoreM)
+import Control.Monad.Trans.Control (MonadBaseControl(..))
 import Control.Monad.Trans.Either (EitherT(..), runEitherT, left)
 import Control.Monad.Trans.RWS.Strict (RWST(..), runRWST)
 import Control.Monad.Writer.Class (MonadWriter)
 
-import Data.Maybe (fromMaybe)
 import Data.Monoid (Monoid(..))
 
 import Network.HTTP.Types (ResponseHeaders, Status)
 
 import qualified Network.Wai as Wai
 
-data ResponseState s = ResponseState { userState  :: s
-                                     , headers    :: ResponseHeaders
-                                     , body       :: Maybe Builder
-                                     }
+type StreamingBody m = (Builder -> m ()) -> m () -> m ()
+
+-- | Basically Wai's unexported 'Response' type, but generalized to any monad,
+-- 'm'.
+data ResponseBody m
+    = ResponseFile FilePath (Maybe Wai.FilePart)
+    | ResponseBuilder Builder
+    | ResponseStream (StreamingBody m)
+    | Empty
+    -- ResponseRaw ... (not implemented yet, but useful for websocket upgrades)
+
+data Response m = Response { _responseStatus     :: Status
+                           , _responseHeaders    :: ResponseHeaders
+                           , _responseBody       :: ResponseBody m
+                           }
+
+data ResponseState s m = ResponseState { stateUser      :: s
+                                       , stateHeaders   :: ResponseHeaders
+                                       , stateBody      :: ResponseBody m
+                                       }
 
 data Trace = Trace deriving (Show)
 
@@ -57,24 +73,27 @@ instance Monoid Trace where
     mappend _ _ = Trace
 
 newtype Webmachine s m a =
-    Webmachine { getWebmachine :: EitherT Wai.Response (RWST Wai.Request Trace (ResponseState s) m) a }
+    Webmachine { getWebmachine :: EitherT (Response m) (RWST Wai.Request Trace (ResponseState s m) m) a }
         deriving (Functor, Applicative, Monad, MonadIO, MonadBase b,
                   MonadReader Wai.Request,
                   MonadWriter Trace,
-                  MonadState (ResponseState s))
+                  MonadState (ResponseState s m))
 
 instance MonadTrans (Webmachine s) where
     lift = Webmachine . EitherT . (>>= return . Right) . lift
 
-instance MonadTransControl (Webmachine s) where
-    type StT (Webmachine s) a = StT (RWST Wai.Request Trace (ResponseState s)) (StT (EitherT Wai.Response) a)
-    liftWith f = Webmachine . liftWith $ \r -> liftWith $ \r' -> f $ r' . r . getWebmachine
-    restoreT = Webmachine . restoreT . restoreT
+newtype StMWebmachine s m a = StMWebmachine {
+      unStMWebmachine :: StM (EitherT (Response m) (RWST Wai.Request Trace (ResponseState s m) m)) a
+    }
 
 instance MonadBaseControl b m => MonadBaseControl b (Webmachine s m) where
-  type StM (Webmachine s m) a = ComposeSt (Webmachine s) m a
-  liftBaseWith = defaultLiftBaseWith
-  restoreM  = defaultRestoreM
+  type StM (Webmachine s m) a = StMWebmachine s m a
+  liftBaseWith f = Webmachine
+                     $ liftBaseWith
+                     $ \g' -> f
+                     $ \m -> liftM StMWebmachine
+                     $ g' $ getWebmachine m
+  restoreM = Webmachine . restoreM . unStMWebmachine
 
 type Handler s m a = Monad m => Webmachine s m a
 
@@ -84,45 +103,44 @@ type Handler s m a = Monad m => Webmachine s m a
 request :: Handler m s Wai.Request
 request = ask
 
-state :: Handler s m s
-state = userState <$> get
+getState :: Handler s m s
+getState = stateUser <$> get
 
 putState :: s -> Handler s m ()
 putState s = modify updateState
-    where updateState rs = rs {userState = s}
+    where updateState rs = rs {stateUser = s}
 
 modifyState :: (s -> s) -> Handler s m ()
 modifyState f = modify modifyState'
-    where modifyState' rs@ResponseState{userState=uState} =
-                                        rs {userState = f uState}
+    where modifyState' rs@ResponseState{stateUser=uState} =
+                                        rs {stateUser = f uState}
 
-responseHeaders :: Handler m s ResponseHeaders
-responseHeaders = headers <$> get
+getResponseHeaders :: Handler s m ResponseHeaders
+getResponseHeaders = stateHeaders <$> get
 
-responseBody :: Handler m s (Maybe Builder)
-responseBody = body <$> get
+getResponseBody :: Handler s m (ResponseBody m)
+getResponseBody = stateBody <$> get
 
 halt :: Status -> Handler m s a
 halt status = do
-    respHeaders <- responseHeaders
-    mBuilder <- responseBody
-    let builder = fromMaybe mempty mBuilder
-        response = Wai.responseBuilder status respHeaders builder
+    respHeaders <- undefined
+    body <- getResponseBody
+    let response = Response status respHeaders body
     finishWith response
 
-finishWith :: Wai.Response -> Handler m s a
+finishWith :: Response m -> Handler s m a
 finishWith = Webmachine . left
 
 both :: Either a a -> a
 both = either id id
 
-eitherResponse :: Monad m => Wai.Request -> s -> Handler s m Wai.Response -> m Wai.Response
+eitherResponse :: Monad m => Wai.Request -> s -> Handler s m (Response m) -> m (Response m)
 eitherResponse req s resource = do
     e <- runWebmachine req s resource
     return $ both e
 
-runWebmachine :: Monad m => Wai.Request -> s -> Handler s m a -> m (Either Wai.Response a)
+runWebmachine :: Monad m => Wai.Request -> s -> Handler s m a -> m (Either (Response m) a)
 runWebmachine req s w = do
-    let startingState = ResponseState s [] Nothing
+    let startingState = ResponseState s [] Empty
     (e, _, _) <- runRWST (runEitherT (getWebmachine w)) req startingState
     return e

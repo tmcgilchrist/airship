@@ -13,15 +13,17 @@ module Airship.Resource
     , singletonContentType
     ) where
 
-import Airship.Types (Webmachine, Handler, finishWith, request)
+import Airship.Types (Webmachine, Handler, Response(..), ResponseBody(..),
+                      finishWith, request)
 
 import Control.Monad (unless, when)
 
 import Data.HashMap.Strict (HashMap, singleton)
 import Data.Text (Text)
+import Blaze.ByteString.Builder.ByteString (fromByteString)
 import Blaze.ByteString.Builder.Html.Utf8 (fromHtmlEscapedText)
 
-import Network.Wai (Response, responseLBS, responseBuilder, requestMethod)
+import Network.Wai (requestMethod)
 import Network.HTTP.Types
 
 data Resource s m =
@@ -45,18 +47,18 @@ data Resource s m =
              -- can't for the life of me figure out why the inner 'Webmachine'
              -- can't be a 'Handler', this it is probably something to do with
              -- our (maybe?) inappropriate use of type aliases for constraints?
-             , contentTypesProvided     :: Handler s m (HashMap Text (Webmachine s m Response))
+             , contentTypesProvided     :: Handler s m (HashMap Text (Webmachine s m (Response m)))
              }
 
 
 serverError :: Handler m s a
-serverError = finishWith (responseLBS status500 [] "")
+serverError = finishWith (Response status500 [] Empty)
 
-runResource :: Resource s IO -> Handler s IO Response
+runResource :: Resource s IO -> Handler s IO (Response IO)
 runResource Resource{..} = do
     req <- request
 
-    let finish s r = finishWith (responseLBS s [] r)
+    let finish s r = finishWith (Response s [] (ResponseBuilder (fromByteString r)))
 
     available <- serviceAvailable
     unless available $
@@ -123,8 +125,8 @@ defaultResource = Resource { allowedMethods         = return [methodGet]
                            , contentTypesProvided   = return (singleton "text/html" helloWorld)
                            }
 
-helloWorld :: Handler s m Response
-helloWorld = return (responseLBS status200 [] "Hello, world")
+helloWorld :: Handler s m (Response m)
+helloWorld = return (Response status200 [] (ResponseBuilder (fromByteString "Hello, world")))
 
-singletonContentType :: Text -> Text -> Handler s m (HashMap Text (Webmachine s m Response))
-singletonContentType ct tex = return (singleton ct (return (responseBuilder status200 [] (fromHtmlEscapedText tex))))
+singletonContentType :: Text -> Text -> Handler s m (HashMap Text (Webmachine s m (Response m)))
+singletonContentType ct tex = return (singleton ct (return (Response status200 [] (ResponseBuilder (fromHtmlEscapedText tex)))))

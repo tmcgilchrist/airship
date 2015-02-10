@@ -21,11 +21,16 @@ module Airship.Types
     , modifyState
     , getResponseHeaders
     , getResponseBody
+    , putResponseBody
+    , putResponseBS
     , halt
     , finishWith
     ) where
 
 import Blaze.ByteString.Builder (Builder)
+import Blaze.ByteString.Builder.ByteString (fromByteString)
+
+import Data.ByteString (ByteString)
 
 import Control.Applicative (Applicative, (<$>))
 import Control.Monad (liftM)
@@ -121,9 +126,16 @@ getResponseHeaders = stateHeaders <$> get
 getResponseBody :: Handler s m (ResponseBody m)
 getResponseBody = stateBody <$> get
 
+putResponseBody :: ResponseBody m -> Handler s m ()
+putResponseBody b = modify updateState
+    where updateState rs = rs {stateBody = b}
+
+putResponseBS :: ByteString -> Handler s m ()
+putResponseBS bs = putResponseBody $ ResponseBuilder $ fromByteString bs
+
 halt :: Status -> Handler m s a
 halt status = do
-    respHeaders <- undefined
+    respHeaders <- getResponseHeaders
     body <- getResponseBody
     let response = Response status respHeaders body
     finishWith response

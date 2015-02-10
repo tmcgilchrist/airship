@@ -14,7 +14,7 @@ module Airship.Resource
     ) where
 
 import Airship.Types (Webmachine, Handler, Response(..), ResponseBody(..),
-                      finishWith, request)
+                      finishWith, halt, request)
 
 import Control.Monad (unless, when)
 
@@ -61,47 +61,36 @@ runResource Resource{..} = do
     let finish s r = finishWith (Response s [] (ResponseBuilder (fromByteString r)))
 
     available <- serviceAvailable
-    unless available $
-      finish status503 "503 Service Unavailable"
+    unless available $ halt status503
 
     impl <- implemented
-    unless impl $
-      finish status501 "501 Not Implemented"
+    unless impl $ halt status501
 
     tooLong <- uriTooLong
-    when tooLong $
-      finish status414 "414 Request URI Too Long"
+    when tooLong $ halt status501
 
     acceptableMethods <- allowedMethods
-    unless (requestMethod req `elem` acceptableMethods) $
-      finish status405 "405 Method Not Allowed"
+    unless (requestMethod req `elem` acceptableMethods) $ halt status405
 
     malformed <- malformedRequest
-    when malformed $
-      finish status400 "400 Bad Request"
+    when malformed $ halt status400
 
     authorized <- isAuthorized
-    unless authorized $ 
-      finish status401 "401 Unauthorized"
+    unless authorized $ halt status401
 
     can't <- forbidden
-    when can't $ 
-      finish status403 "403 Forbidden"
+    when can't $ halt status403
 
     acceptableContent <- validContentHeaders
-    unless acceptableContent $
-      finish status501 "501 Not Implemented"
+    unless acceptableContent $ halt status501
 
     acceptableType <- knownContentType
-    unless acceptableType $
-      finish status415 "415 Unsupported Media Type"
+    unless acceptableType $ halt status415
 
     tooLarge <- entityTooLarge
-    when tooLarge $
-      finish status413 "413 Request Entity Too Large"
+    when tooLarge $ halt status413
 
     finish status200 "200 OK"
-    
 
 defaultResource :: Resource s m
 defaultResource = Resource { allowedMethods         = return [methodGet]

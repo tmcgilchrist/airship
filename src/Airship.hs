@@ -4,8 +4,9 @@ module Airship
     ( resourceToWai
     ) where
 
+import Airship.Decision (flow)
 import Airship.Types (Response(..), ResponseBody(..), eitherResponse)
-import Airship.Resource (Resource, runResource)
+import Airship.Resource (Resource)
 import Airship.Route (RoutingSpec, route, runRouter)
 
 import Data.Monoid (mempty)
@@ -23,5 +24,5 @@ resourceToWai routes resource404 s req respond = do
     let routeMapping = runRouter routes
         pInfo = pathInfo req
         resource = route routeMapping pInfo resource404
-    response <- eitherResponse req s (runResource resource)
+    response <- eitherResponse req s (flow resource)
     respond (toWaiResponse response)

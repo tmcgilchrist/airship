@@ -12,6 +12,7 @@ module Airship.Types
     ( Webmachine
     , Handler
     , Response(..)
+    , ResponseState(..)
     , ResponseBody(..)
     , eitherResponse
     , runWebmachine

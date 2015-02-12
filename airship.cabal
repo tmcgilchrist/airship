@@ -32,6 +32,8 @@ library
   hs-source-dirs: src
   ghc-options:  -Wall
   exposed-modules:   Airship
+                   , Airship.Decision
+                   , Airship.Headers
                    , Airship.Types
                    , Airship.Resource
                    , Airship.Route
@@ -39,7 +41,9 @@ library
   build-depends:        base >=4.7 && <4.8
                       , blaze-builder == 0.3.*
                       , bytestring
+                      , case-insensitive
                       , either == 4.3.*
+                      , http-media
                       , http-types >= 0.7
                       , lifted-base == 0.2.*
                       , monad-control >= 1.0

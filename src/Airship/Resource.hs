@@ -2,29 +2,26 @@
 {-# LANGUAGE ImpredicativeTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Airship.Resource
     ( Resource(..)
     , serverError
-    , runResource
     , defaultResource
     , singletonContentType
     ) where
 
-import Airship.Types (Webmachine, Handler, Response(..), ResponseBody(..),
-                      finishWith, halt, request)
+import Airship.Types (Handler, Response(..), ResponseBody(..), finishWith)
 
-import Control.Monad (unless, when)
-
-import Data.HashMap.Strict (HashMap, singleton)
 import Data.Text (Text)
+import Data.ByteString (ByteString)
+import Data.CaseInsensitive (CI)
 import Blaze.ByteString.Builder.ByteString (fromByteString)
 import Blaze.ByteString.Builder.Html.Utf8 (fromHtmlEscapedText)
 
-import Network.Wai (requestMethod)
 import Network.HTTP.Types
+
+type ContentType = CI ByteString
 
 data Resource s m =
     Resource { allowedMethods           :: Handler s m [Method]
@@ -47,50 +44,12 @@ data Resource s m =
              -- can't for the life of me figure out why the inner 'Webmachine'
              -- can't be a 'Handler', this it is probably something to do with
              -- our (maybe?) inappropriate use of type aliases for constraints?
-             , contentTypesProvided     :: Handler s m (HashMap Text (Webmachine s m (Response m)))
+             , contentTypesProvided     :: Handler s m [(ContentType, ResponseBody m)]
              }
 
 
 serverError :: Handler m s a
 serverError = finishWith (Response status500 [] Empty)
-
-runResource :: Resource s IO -> Handler s IO (Response IO)
-runResource Resource{..} = do
-    req <- request
-
-    let finish s r = finishWith (Response s [] (ResponseBuilder (fromByteString r)))
-
-    available <- serviceAvailable
-    unless available $ halt status503
-
-    impl <- implemented
-    unless impl $ halt status501
-
-    tooLong <- uriTooLong
-    when tooLong $ halt status501
-
-    acceptableMethods <- allowedMethods
-    unless (requestMethod req `elem` acceptableMethods) $ halt status405
-
-    malformed <- malformedRequest
-    when malformed $ halt status400
-
-    authorized <- isAuthorized
-    unless authorized $ halt status401
-
-    can't <- forbidden
-    when can't $ halt status403
-
-    acceptableContent <- validContentHeaders
-    unless acceptableContent $ halt status501
-
-    acceptableType <- knownContentType
-    unless acceptableType $ halt status415
-
-    tooLarge <- entityTooLarge
-    when tooLarge $ halt status413
-
-    finish status200 "200 OK"
 
 defaultResource :: Resource s m
 defaultResource = Resource { allowedMethods         = return [methodGet]
@@ -111,11 +70,11 @@ defaultResource = Resource { allowedMethods         = return [methodGet]
                            , createPath             = return Nothing
                            , processPost            = return False
                            -- should this be a map?
-                           , contentTypesProvided   = return (singleton "text/html" helloWorld)
+                           , contentTypesProvided   = return [("text/html", helloWorld)]
                            }
 
-helloWorld :: Handler s m (Response m)
-helloWorld = return (Response status200 [] (ResponseBuilder (fromByteString "Hello, world")))
+helloWorld :: ResponseBody m
+helloWorld = ResponseBuilder (fromByteString "Hello, world!")
 
-singletonContentType :: Text -> Text -> Handler s m (HashMap Text (Webmachine s m (Response m)))
-singletonContentType ct tex = return (singleton ct (return (Response status200 [] (ResponseBuilder (fromHtmlEscapedText tex)))))
+singletonContentType :: ContentType -> Text -> [(ContentType, ResponseBody m)]
+singletonContentType ct tex = [(ct, ResponseBuilder (fromHtmlEscapedText tex))]

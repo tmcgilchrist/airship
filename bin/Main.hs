@@ -11,7 +11,9 @@ import Data.Text(Text)
 import Network.Wai.Handler.Warp (run)
 
 resourceWithBody :: Text -> Resource Integer IO
-resourceWithBody t = defaultResource{ contentTypesProvided = singletonContentType "text/html" t }
+resourceWithBody t = defaultResource{ contentTypesProvided = return $
+                                        singletonContentType "text/html" t
+                                    }
 
 myRoutes :: RoutingSpec Integer IO ()
 myRoutes = do

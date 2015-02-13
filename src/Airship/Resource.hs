@@ -12,17 +12,14 @@ module Airship.Resource
     , singletonContentType
     ) where
 
-import Airship.Types (Handler, Response(..), ResponseBody(..), finishWith)
+import Airship.Types (ContentType, Handler, Response(..), ResponseBody(..),
+                      finishWith)
 
 import Data.Text (Text)
-import Data.ByteString (ByteString)
-import Data.CaseInsensitive (CI)
 import Blaze.ByteString.Builder.ByteString (fromByteString)
 import Blaze.ByteString.Builder.Html.Utf8 (fromHtmlEscapedText)
 
 import Network.HTTP.Types
-
-type ContentType = CI ByteString
 
 data Resource s m =
     Resource { allowMissingPost         :: Handler s m Bool

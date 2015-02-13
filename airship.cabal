@@ -34,11 +34,13 @@ library
   exposed-modules:   Airship
                    , Airship.Decision
                    , Airship.Headers
+                   , Airship.Parsers
                    , Airship.Types
                    , Airship.Resource
                    , Airship.Route
 
-  build-depends:        base >=4.7 && <4.8
+  build-depends:        attoparsec
+                      , base >=4.7 && <4.8
                       , blaze-builder == 0.3.*
                       , bytestring
                       , case-insensitive

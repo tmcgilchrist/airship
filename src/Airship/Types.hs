@@ -9,7 +9,9 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Airship.Types
-    ( Webmachine
+    ( ContentType
+    , ETag(..)
+    , Webmachine
     , Handler
     , Response(..)
     , ResponseState(..)
@@ -31,7 +33,8 @@ module Airship.Types
 import Blaze.ByteString.Builder (Builder)
 import Blaze.ByteString.Builder.ByteString (fromByteString)
 
-import Data.ByteString (ByteString)
+import Data.ByteString.Char8
+import Data.CaseInsensitive (CI)
 
 import Control.Applicative (Applicative, (<$>))
 import Control.Monad (liftM)
@@ -45,11 +48,21 @@ import Control.Monad.Trans.Either (EitherT(..), runEitherT, left)
 import Control.Monad.Trans.RWS.Strict (RWST(..), runRWST)
 import Control.Monad.Writer.Class (MonadWriter)
 
-import Data.Monoid (Monoid(..))
+import Data.Monoid (Monoid(..), (<>))
 
 import Network.HTTP.Types (ResponseHeaders, Status)
 
 import qualified Network.Wai as Wai
+
+type ContentType = CI ByteString
+
+data ETag = Strong ByteString
+          | Weak ByteString
+          deriving (Eq)
+
+instance Show ETag where
+    show (Strong bs)    =         "\""  <> unpack bs <> "\""
+    show (Weak bs)      = "W/" <> "\""  <> unpack bs <> "\""
 
 type StreamingBody m = (Builder -> m ()) -> m () -> m ()
 

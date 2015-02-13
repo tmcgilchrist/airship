@@ -20,6 +20,12 @@ import           Network.Wai (requestMethod, requestHeaders)
 hAcceptCharset :: HTTP.HeaderName
 hAcceptCharset = "Accept-Charset"
 
+hAcceptEncoding :: HTTP.HeaderName
+hAcceptEncoding = "Accept-Encoding"
+
+hIfMatch :: HTTP.HeaderName
+hIfMatch = "If-Match"
+
 data FlowState m = FlowState
     { _contentType :: Maybe (ContentType, ResponseBody m)
     }
@@ -37,6 +43,16 @@ c04, c03 :: Monad m => Flow s m
 d05, d04 :: Monad m => Flow s m
 e06, e05 :: Monad m => Flow s m
 f07, f06 :: Monad m => Flow s m
+g11, g09, g08, g07 :: Monad m => Flow s m
+h12, h11, h10, h07 :: Monad m => Flow s m
+i13, i12, i07, i04 :: Monad m => Flow s m
+j18 :: Monad m => Flow s m
+k07, k05 :: Monad m => Flow s m
+l17, l15, l14, l13, l07, l05 :: Monad m => Flow s m
+m20, m16, m07, m05 :: Monad m => Flow s m
+n16, n11, n05 :: Monad m => Flow s m
+o20, o18, o16, o14 :: Monad m => Flow s m
+p11, p03 :: Monad m => Flow s m
 
 ------------------------------------------------------------------------------
 -- B column
@@ -192,5 +208,126 @@ e05 r@Resource{..} = do
 -- F column
 ------------------------------------------------------------------------------
 
-f07 = undefined
-f06 = f07
+f07 r@Resource{..} = do
+   -- TODO: encoding negotiation
+   g07 r
+
+f06 r@Resource{..} = do
+    req <- lift request
+    let reqHeaders = requestHeaders req
+    case lookup hAcceptEncoding reqHeaders of
+        (Just _h) ->
+            f07 r
+        Nothing ->
+            g07 r
+
+------------------------------------------------------------------------------
+-- G column
+------------------------------------------------------------------------------
+
+g11 r@Resource{..} = do
+    req <- lift request
+    let reqHeaders = requestHeaders req
+        ifMatch = fromJust (lookup hIfMatch reqHeaders)
+    undefined
+
+g09 r@Resource{..} = do
+    req <- lift request
+    let reqHeaders = requestHeaders req
+    case fromJust (lookup hIfMatch reqHeaders) of
+        -- TODO: should we be stripped whitespace here?
+        "*" ->
+            h10 r
+        _ ->
+            g11 r
+
+g08 r@Resource{..} = do
+    req <- lift request
+    let reqHeaders = requestHeaders req
+    case lookup hIfMatch reqHeaders of
+        (Just _h) ->
+            g09 r
+        Nothing ->
+            h10 r
+
+g07 r@Resource{..} = do
+    -- TODO: set Vary headers
+    exists <- lift resourceExists
+    if exists
+        then g08 r
+        else h07 r
+
+------------------------------------------------------------------------------
+-- H column
+------------------------------------------------------------------------------
+
+h12 = undefined
+h11 = undefined
+h10 = undefined
+h07 = undefined
+
+------------------------------------------------------------------------------
+-- I column
+------------------------------------------------------------------------------
+
+i13 = undefined
+i12 = undefined
+i07 = undefined
+i04 = undefined
+
+------------------------------------------------------------------------------
+-- J column
+------------------------------------------------------------------------------
+
+j18 = undefined
+
+------------------------------------------------------------------------------
+-- K column
+------------------------------------------------------------------------------
+
+k07 = undefined
+k05 = undefined
+
+------------------------------------------------------------------------------
+-- L column
+------------------------------------------------------------------------------
+
+l17 = undefined
+l15 = undefined
+l14 = undefined
+l13 = undefined
+l07 = undefined
+l05 = undefined
+
+------------------------------------------------------------------------------
+-- M column
+------------------------------------------------------------------------------
+
+m20 = undefined
+m16 = undefined
+m07 = undefined
+m05 = undefined
+
+------------------------------------------------------------------------------
+-- N column
+------------------------------------------------------------------------------
+
+n16 = undefined
+n11 = undefined
+n05 = undefined
+
+------------------------------------------------------------------------------
+-- O column
+------------------------------------------------------------------------------
+
+o20 = undefined
+o18 = undefined
+o16 = undefined
+o14 = undefined
+
+------------------------------------------------------------------------------
+-- P column
+------------------------------------------------------------------------------
+
+p11 = undefined
+p03 = undefined

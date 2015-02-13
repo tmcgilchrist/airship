@@ -239,7 +239,7 @@ g09 r@Resource{..} = do
     req <- lift request
     let reqHeaders = requestHeaders req
     case fromJust (lookup hIfMatch reqHeaders) of
-        -- TODO: should we be stripped whitespace here?
+        -- TODO: should we be stripping whitespace here?
         "*" ->
             h10 r
         _ ->

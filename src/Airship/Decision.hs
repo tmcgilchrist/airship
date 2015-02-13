@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -16,6 +17,9 @@ import           Data.Maybe (fromJust)
 import qualified Network.HTTP.Types as HTTP
 import           Network.Wai (requestMethod, requestHeaders)
 
+hAcceptCharset :: HTTP.HeaderName
+hAcceptCharset = "Accept-Charset"
+
 data FlowState m = FlowState
     { _contentType :: Maybe (ContentType, ResponseBody m)
     }
@@ -31,6 +35,12 @@ flow r = evalStateT (b13 r) initFlowState
 b13, b12, b11, b10, b09, b08, b07, b06, b05, b04, b03 :: Monad m => Flow s m
 c04, c03 :: Monad m => Flow s m
 d05, d04 :: Monad m => Flow s m
+e06, e05 :: Monad m => Flow s m
+f07, f06 :: Monad m => Flow s m
+
+------------------------------------------------------------------------------
+-- B column
+------------------------------------------------------------------------------
 
 b13 r@Resource{..} = do
     available <- lift serviceAvailable
@@ -110,6 +120,10 @@ b03 r@Resource{..} = do
         then lift $ halt HTTP.status200
         else c03 r
 
+------------------------------------------------------------------------------
+-- C column
+------------------------------------------------------------------------------
+
 c04 r@Resource{..} = do
     -- TODO: do proper content-type negotiation
     req <- lift request
@@ -136,6 +150,16 @@ c03 r@Resource{..} = do
         Nothing ->
             d04 r
 
+------------------------------------------------------------------------------
+-- D column
+------------------------------------------------------------------------------
+
+d05 r@Resource{..} = do
+    langAvailable <- lift languageAvailable
+    if langAvailable
+        then e05 r
+        else lift $ halt HTTP.status406
+
 d04 r@Resource{..} = do
     req <- lift request
     let reqHeaders = requestHeaders req
@@ -147,8 +171,26 @@ d04 r@Resource{..} = do
             -- e05 r
             undefined
 
-d05 _r@Resource{..} = do
-    langAvailable <- lift languageAvailable
-    if langAvailable
-        then undefined -- e05
-        else lift $ halt HTTP.status406
+------------------------------------------------------------------------------
+-- D column
+------------------------------------------------------------------------------
+
+e06 r@Resource{..} =
+    -- TODO: charset negotiation
+    f06 r
+
+e05 r@Resource{..} = do
+    req <- lift request
+    let reqHeaders = requestHeaders req
+    case lookup hAcceptCharset reqHeaders of
+        (Just _h) ->
+            e06 r
+        Nothing ->
+            f06 r
+
+------------------------------------------------------------------------------
+-- F column
+------------------------------------------------------------------------------
+
+f07 = undefined
+f06 = f07

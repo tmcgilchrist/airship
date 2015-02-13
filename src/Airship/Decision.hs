@@ -6,9 +6,10 @@ module Airship.Decision
     ( flow
     ) where
 
-import           Airship.Types (Webmachine, Response(..), ResponseBody,
-                                halt, request)
-import           Airship.Resource(Resource(..), ContentType)
+import           Airship.Types (ContentType, Webmachine, Response(..),
+                                ResponseBody, halt, request)
+import           Airship.Resource(Resource(..))
+import           Airship.Parsers (parseEtagList)
 import           Control.Monad.Trans (lift)
 import           Control.Monad.Trans.State.Strict (StateT(..), evalStateT,
                                                    modify)
@@ -229,7 +230,10 @@ g11 r@Resource{..} = do
     req <- lift request
     let reqHeaders = requestHeaders req
         ifMatch = fromJust (lookup hIfMatch reqHeaders)
-    undefined
+        etags = parseEtagList ifMatch
+    if null etags
+        then lift $ halt HTTP.status412
+        else h10 r
 
 g09 r@Resource{..} = do
     req <- lift request

@@ -39,7 +39,7 @@ strongETag = insideQuotes strong
     where strong = Strong <$> takeWhile1 (/= doubleQuote)
 
 eTag :: Parser ETag
-eTag = weakETag <|> strongETag
+eTag = insideWhitespace (weakETag <|> strongETag)
 
 parseEtag :: ByteString -> Maybe ETag
 parseEtag input = either (const Nothing) Just (parseOnly eTagToEnd input)
@@ -49,4 +49,4 @@ parseEtag input = either (const Nothing) Just (parseOnly eTagToEnd input)
 parseEtagList :: ByteString -> [ETag]
 parseEtagList input = either (const []) id parseResult
     where parseResult = parseOnly eTagList input
-          eTagList = (eTag `sepBy'` insideWhitespace comma) <* endOfInput
+          eTagList = (eTag `sepBy'` comma) <* endOfInput

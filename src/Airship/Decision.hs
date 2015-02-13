@@ -14,7 +14,8 @@ import           Control.Monad.Trans (lift)
 import           Control.Monad.Trans.State.Strict (StateT(..), evalStateT,
                                                    modify)
 import qualified Data.CaseInsensitive as CI
-import           Data.Maybe (fromJust)
+import           Data.Maybe (fromJust, isJust)
+import           Network.HTTP.Date (parseHTTPDate)
 import qualified Network.HTTP.Types as HTTP
 import           Network.Wai (requestMethod, requestHeaders)
 
@@ -26,6 +27,9 @@ hAcceptEncoding = "Accept-Encoding"
 
 hIfMatch :: HTTP.HeaderName
 hIfMatch = "If-Match"
+
+hIfUnmodifiedSince :: HTTP.HeaderName
+hIfUnmodifiedSince = "If-Unmodified-Since"
 
 data FlowState m = FlowState
     { _contentType :: Maybe (ContentType, ResponseBody m)
@@ -209,7 +213,7 @@ e05 r@Resource{..} = do
 -- F column
 ------------------------------------------------------------------------------
 
-f07 r@Resource{..} = do
+f07 r@Resource{..} =
    -- TODO: encoding negotiation
    g07 r
 
@@ -265,10 +269,47 @@ g07 r@Resource{..} = do
 -- H column
 ------------------------------------------------------------------------------
 
-h12 = undefined
-h11 = undefined
-h10 = undefined
-h07 = undefined
+h12 r@Resource{..} = do
+    req <- lift request
+    modified <- lift lastModified
+    let reqHeaders = requestHeaders req
+        dateHeader = lookup hIfUnmodifiedSince reqHeaders
+        parsedDate =  (dateHeader >>= parseHTTPDate)
+        maybeGreater = do
+            lastM <- modified
+            headerDate <- parsedDate
+            return (lastM > headerDate)
+    if maybeGreater == (Just True)
+        then lift $ halt HTTP.status412
+        else i12 r
+
+h11 r@Resource{..} = do
+    req <- lift request
+    let reqHeaders = requestHeaders req
+        dateHeader = lookup hIfUnmodifiedSince reqHeaders
+        validDate = isJust (dateHeader >>= parseHTTPDate)
+    if validDate
+        then h12 r
+        else i12 r
+
+h10 r@Resource{..} = do
+    req <- lift request
+    let reqHeaders = requestHeaders req
+    case lookup hIfUnmodifiedSince reqHeaders of
+        (Just _h) ->
+            h11 r
+        Nothing ->
+            i12 r
+
+h07 r@Resource {..} = do
+    req <- lift request
+    let reqHeaders = requestHeaders req
+    case fromJust (lookup hIfMatch reqHeaders) of
+        -- TODO: should we be stripping whitespace here?
+        "*" ->
+            lift $ halt HTTP.status412
+        _ ->
+            i07 r
 
 ------------------------------------------------------------------------------
 -- I column

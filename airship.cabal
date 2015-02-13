@@ -45,6 +45,7 @@ library
                       , bytestring
                       , case-insensitive
                       , either == 4.3.*
+                      , http-date
                       , http-media
                       , http-types >= 0.7
                       , lifted-base == 0.2.*

@@ -19,6 +19,7 @@ import Data.Text (Text)
 import Blaze.ByteString.Builder.ByteString (fromByteString)
 import Blaze.ByteString.Builder.Html.Utf8 (fromHtmlEscapedText)
 
+import Network.HTTP.Date (HTTPDate)
 import Network.HTTP.Types
 
 data Resource s m =
@@ -36,6 +37,7 @@ data Resource s m =
              , implemented              :: Handler s m Bool
              , isAuthorized             :: Handler s m Bool
              , knownContentType         :: Handler s m Bool
+             , lastModified             :: Handler s m (Maybe HTTPDate)
              , languageAvailable        :: Handler s m Bool
              , malformedRequest         :: Handler s m Bool
              , postIsCreate             :: Handler s m Bool
@@ -62,6 +64,7 @@ defaultResource = Resource { allowMissingPost       = return False
                            , implemented            = return True
                            , isAuthorized           = return True
                            , knownContentType       = return True
+                           , lastModified           = return Nothing
                            , languageAvailable      = return True
                            , malformedRequest       = return False
                            , postIsCreate           = return False

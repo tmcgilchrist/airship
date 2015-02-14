@@ -16,6 +16,7 @@ import Airship.Types (ContentType, Handler, Response(..), ResponseBody(..),
                       finishWith)
 
 import Data.Text (Text)
+import Data.ByteString (ByteString)
 import Blaze.ByteString.Builder.ByteString (fromByteString)
 import Blaze.ByteString.Builder.Html.Utf8 (fromHtmlEscapedText)
 
@@ -40,6 +41,9 @@ data Resource s m =
              , lastModified             :: Handler s m (Maybe HTTPDate)
              , languageAvailable        :: Handler s m Bool
              , malformedRequest         :: Handler s m Bool
+                                        -- wondering if this should be text,
+                                        -- or some 'path' type
+             , movedPermanently         :: Handler s m (Maybe ByteString)
              , postIsCreate             :: Handler s m Bool
              , processPost              :: Handler s m Bool
              , resourceExists           :: Handler s m Bool
@@ -67,6 +71,7 @@ defaultResource = Resource { allowMissingPost       = return False
                            , lastModified           = return Nothing
                            , languageAvailable      = return True
                            , malformedRequest       = return False
+                           , movedPermanently       = return Nothing
                            , postIsCreate           = return False
                            , processPost            = return False
                            , resourceExists         = return True

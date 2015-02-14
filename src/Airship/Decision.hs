@@ -6,6 +6,7 @@ module Airship.Decision
     ( flow
     ) where
 
+import           Airship.Headers (addResponseHeader)
 import           Airship.Types (ContentType, Webmachine, Response(..),
                                 ResponseBody, halt, request)
 import           Airship.Resource(Resource(..))
@@ -31,6 +32,9 @@ hIfMatch = "If-Match"
 hIfUnmodifiedSince :: HTTP.HeaderName
 hIfUnmodifiedSince = "If-Unmodified-Since"
 
+hIfNoneMatch :: HTTP.HeaderName
+hIfNoneMatch = "If-None-Match"
+
 data FlowState m = FlowState
     { _contentType :: Maybe (ContentType, ResponseBody m)
     }
@@ -52,7 +56,7 @@ g11, g09, g08, g07 :: Monad m => Flow s m
 h12, h11, h10, h07 :: Monad m => Flow s m
 i13, i12, i07, i04 :: Monad m => Flow s m
 j18 :: Monad m => Flow s m
-k07, k05 :: Monad m => Flow s m
+k13, k07, k05 :: Monad m => Flow s m
 l17, l15, l14, l13, l07, l05 :: Monad m => Flow s m
 m20, m16, m07, m05 :: Monad m => Flow s m
 n16, n11, n05 :: Monad m => Flow s m
@@ -270,16 +274,18 @@ g07 r@Resource{..} = do
 ------------------------------------------------------------------------------
 
 h12 r@Resource{..} = do
+    -- TODO:
+    -- reduce duplication with 'h11'
     req <- lift request
     modified <- lift lastModified
     let reqHeaders = requestHeaders req
         dateHeader = lookup hIfUnmodifiedSince reqHeaders
-        parsedDate =  (dateHeader >>= parseHTTPDate)
+        parsedDate =  dateHeader >>= parseHTTPDate
         maybeGreater = do
             lastM <- modified
             headerDate <- parsedDate
             return (lastM > headerDate)
-    if maybeGreater == (Just True)
+    if maybeGreater == Just True
         then lift $ halt HTTP.status412
         else i12 r
 
@@ -315,21 +321,58 @@ h07 r@Resource {..} = do
 -- I column
 ------------------------------------------------------------------------------
 
-i13 = undefined
-i12 = undefined
-i07 = undefined
-i04 = undefined
+i13 r@Resource{..} = do
+    req <- lift request
+    let reqHeaders = requestHeaders req
+    case fromJust (lookup hIfNoneMatch reqHeaders) of
+        -- TODO: should we be stripping whitespace here?
+        "*" ->
+            j18 r
+        _ ->
+            k13 r
+
+i12 r@Resource{..} = do
+    req <- lift request
+    let reqHeaders = requestHeaders req
+    case lookup hIfNoneMatch reqHeaders of
+        (Just _h) ->
+            i13 r
+        Nothing ->
+            l13 r
+
+i07 r = do
+    req <- lift request
+    if requestMethod req == HTTP.methodPut
+        then i04 r
+        else k07 r
+
+i04 r@Resource{..} = do
+    moved <- lift movedPermanently
+    case moved of
+        (Just loc) -> do
+            lift $ addResponseHeader ("Location", loc)
+            lift $ halt HTTP.status301
+        Nothing ->
+            p03 r
 
 ------------------------------------------------------------------------------
 -- J column
 ------------------------------------------------------------------------------
 
-j18 = undefined
+j18 _ = do
+    req <- lift request
+    let getOrHead = [ HTTP.methodGet
+                    , HTTP.methodHead
+                    ]
+    if requestMethod req `elem` getOrHead
+        then lift $ halt HTTP.status304
+        else lift $ halt HTTP.status412
 
 ------------------------------------------------------------------------------
 -- K column
 ------------------------------------------------------------------------------
 
+k13 = undefined
 k07 = undefined
 k05 = undefined
 

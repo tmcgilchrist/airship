@@ -45,6 +45,7 @@ data Resource s m =
                                         -- or some 'path' type
              , movedPermanently         :: Handler s m (Maybe ByteString)
              , postIsCreate             :: Handler s m Bool
+             , previouslyExisted        :: Handler s m Bool
              , processPost              :: Handler s m Bool
              , resourceExists           :: Handler s m Bool
              , serviceAvailable         :: Handler s m Bool
@@ -73,6 +74,7 @@ defaultResource = Resource { allowMissingPost       = return False
                            , malformedRequest       = return False
                            , movedPermanently       = return Nothing
                            , postIsCreate           = return False
+                           , previouslyExisted      = return False
                            , processPost            = return False
                            , resourceExists         = return True
                            , serviceAvailable       = return True

@@ -372,9 +372,29 @@ j18 _ = do
 -- K column
 ------------------------------------------------------------------------------
 
-k13 = undefined
-k07 = undefined
-k05 = undefined
+k13 r@Resource{..} = do
+    req <- lift request
+    let reqHeaders = requestHeaders req
+        ifNoneMatch = fromJust (lookup hIfNoneMatch reqHeaders)
+        etags = parseEtagList ifNoneMatch
+    if null etags
+        then j18 r
+        else l13 r
+
+k07 r@Resource{..} = do
+    prevExisted <- lift previouslyExisted
+    if prevExisted
+        then k05 r
+        else l07 r
+
+k05 r@Resource{..} = do
+    moved <- lift movedPermanently
+    case moved of
+        (Just loc) -> do
+            lift $ addResponseHeader ("Location", loc)
+            lift $ halt HTTP.status301
+        Nothing ->
+            l05 r
 
 ------------------------------------------------------------------------------
 -- L column

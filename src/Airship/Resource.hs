@@ -26,9 +26,6 @@ import Network.HTTP.Types
 data Resource s m =
     Resource { allowMissingPost         :: Handler s m Bool
              , allowedMethods           :: Handler s m [Method]
-             -- can't for the life of me figure out why the inner 'Webmachine'
-             -- can't be a 'Handler', this it is probably something to do with
-             -- our (maybe?) inappropriate use of type aliases for constraints?
              , contentTypesProvided     :: Handler s m [(ContentType, ResponseBody m)]
              , createPath               :: Handler s m (Maybe Text)
              , deleteCompleted          :: Handler s m Bool

@@ -19,6 +19,7 @@ module Airship.Types
     , eitherResponse
     , runWebmachine
     , request
+    , requestTime
     , getState
     , putState
     , modifyState
@@ -35,6 +36,7 @@ import Blaze.ByteString.Builder.ByteString (fromByteString)
 
 import Data.ByteString.Char8
 import Data.CaseInsensitive (CI)
+import Data.Time.Clock (UTCTime)
 
 import Control.Applicative (Applicative, (<$>))
 import Control.Monad (liftM)
@@ -53,6 +55,10 @@ import Data.Monoid (Monoid(..), (<>))
 import Network.HTTP.Types (ResponseHeaders, Status)
 
 import qualified Network.Wai as Wai
+
+data RequestReader = RequestReader { _now :: UTCTime
+                                   , _request :: Wai.Request
+                                   }
 
 type ContentType = CI ByteString
 
@@ -92,9 +98,9 @@ instance Monoid Trace where
     mappend _ _ = Trace
 
 newtype Webmachine s m a =
-    Webmachine { getWebmachine :: EitherT (Response m) (RWST Wai.Request Trace (ResponseState s m) m) a }
+    Webmachine { getWebmachine :: EitherT (Response m) (RWST RequestReader Trace (ResponseState s m) m) a }
         deriving (Functor, Applicative, Monad, MonadIO, MonadBase b,
-                  MonadReader Wai.Request,
+                  MonadReader RequestReader,
                   MonadWriter Trace,
                   MonadState (ResponseState s m))
 
@@ -102,7 +108,7 @@ instance MonadTrans (Webmachine s) where
     lift = Webmachine . EitherT . (>>= return . Right) . lift
 
 newtype StMWebmachine s m a = StMWebmachine {
-      unStMWebmachine :: StM (EitherT (Response m) (RWST Wai.Request Trace (ResponseState s m) m)) a
+      unStMWebmachine :: StM (EitherT (Response m) (RWST RequestReader Trace (ResponseState s m) m)) a
     }
 
 instance MonadBaseControl b m => MonadBaseControl b (Webmachine s m) where
@@ -120,7 +126,10 @@ type Handler s m a = Monad m => Webmachine s m a
 ------------------------------------------------------------------------------
 
 request :: Handler m s Wai.Request
-request = ask
+request = _request <$> ask
+
+requestTime :: Handler m s UTCTime
+requestTime = _now <$> ask
 
 getState :: Handler s m s
 getState = stateUser <$> get
@@ -160,13 +169,14 @@ finishWith = Webmachine . left
 both :: Either a a -> a
 both = either id id
 
-eitherResponse :: Monad m => Wai.Request -> s -> Handler s m (Response m) -> m (Response m)
-eitherResponse req s resource = do
-    e <- runWebmachine req s resource
+eitherResponse :: Monad m => UTCTime -> Wai.Request -> s -> Handler s m (Response m) -> m (Response m)
+eitherResponse reqDate req s resource = do
+    e <- runWebmachine reqDate req s resource
     return $ both e
 
-runWebmachine :: Monad m => Wai.Request -> s -> Handler s m a -> m (Either (Response m) a)
-runWebmachine req s w = do
+runWebmachine :: Monad m => UTCTime -> Wai.Request -> s -> Handler s m a -> m (Either (Response m) a)
+runWebmachine reqDate req s w = do
     let startingState = ResponseState s [] Empty
-    (e, _, _) <- runRWST (runEitherT (getWebmachine w)) req startingState
+        requestReader = RequestReader reqDate req
+    (e, _, _) <- runRWST (runEitherT (getWebmachine w)) requestReader startingState
     return e

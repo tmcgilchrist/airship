@@ -33,6 +33,7 @@ library
   ghc-options:  -Wall
   exposed-modules:   Airship
                    , Airship.Decision
+                   , Airship.Date
                    , Airship.Headers
                    , Airship.Parsers
                    , Airship.Types
@@ -52,6 +53,7 @@ library
                       , monad-control >= 1.0
                       , mtl == 2.2.*
                       , text
+                      , time
                       , transformers == 0.4.2.*
                       , transformers-base == 0.4.3.*
                       , unordered-containers

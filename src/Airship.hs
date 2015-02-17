@@ -9,6 +9,7 @@ import Airship.Types (Response(..), ResponseBody(..), eitherResponse)
 import Airship.Resource (Resource)
 import Airship.Route (RoutingSpec, route, runRouter)
 
+import Data.Time.Clock (getCurrentTime)
 import Data.Monoid (mempty)
 
 import Network.Wai (Application, pathInfo)
@@ -24,5 +25,6 @@ resourceToWai routes resource404 s req respond = do
     let routeMapping = runRouter routes
         pInfo = pathInfo req
         resource = route routeMapping pInfo resource404
-    response <- eitherResponse req s (flow resource)
+    nowTime <- getCurrentTime
+    response <- eitherResponse nowTime req s (flow resource)
     respond (toWaiResponse response)

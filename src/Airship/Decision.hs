@@ -6,17 +6,18 @@ module Airship.Decision
     ( flow
     ) where
 
+import           Airship.Date (parseRfc1123Date)
 import           Airship.Headers (addResponseHeader)
 import           Airship.Types (ContentType, Webmachine, Response(..),
-                                ResponseBody, halt, request)
+                                ResponseBody, halt, request, requestTime)
 import           Airship.Resource(Resource(..))
 import           Airship.Parsers (parseEtagList)
+import           Control.Applicative ((<$>))
 import           Control.Monad.Trans (lift)
 import           Control.Monad.Trans.State.Strict (StateT(..), evalStateT,
                                                    modify)
 import qualified Data.CaseInsensitive as CI
 import           Data.Maybe (fromJust, isJust)
-import           Network.HTTP.Date (parseHTTPDate)
 import qualified Network.HTTP.Types as HTTP
 import           Network.Wai (requestMethod, requestHeaders)
 
@@ -34,6 +35,9 @@ hIfUnmodifiedSince = "If-Unmodified-Since"
 
 hIfNoneMatch :: HTTP.HeaderName
 hIfNoneMatch = "If-None-Match"
+
+hIfModifiedSince :: HTTP.HeaderName
+hIfModifiedSince = "If-Modified-Since"
 
 data FlowState m = FlowState
     { _contentType :: Maybe (ContentType, ResponseBody m)
@@ -280,7 +284,7 @@ h12 r@Resource{..} = do
     modified <- lift lastModified
     let reqHeaders = requestHeaders req
         dateHeader = lookup hIfUnmodifiedSince reqHeaders
-        parsedDate =  dateHeader >>= parseHTTPDate
+        parsedDate =  dateHeader >>= parseRfc1123Date
         maybeGreater = do
             lastM <- modified
             headerDate <- parsedDate
@@ -293,7 +297,7 @@ h11 r@Resource{..} = do
     req <- lift request
     let reqHeaders = requestHeaders req
         dateHeader = lookup hIfUnmodifiedSince reqHeaders
-        validDate = isJust (dateHeader >>= parseHTTPDate)
+        validDate = isJust (dateHeader >>= parseRfc1123Date)
     if validDate
         then h12 r
         else i12 r
@@ -400,12 +404,63 @@ k05 r@Resource{..} = do
 -- L column
 ------------------------------------------------------------------------------
 
-l17 = undefined
-l15 = undefined
-l14 = undefined
-l13 = undefined
-l07 = undefined
-l05 = undefined
+l17 r@Resource{..} = do
+    req <- lift request
+    modified <- lift lastModified
+    let reqHeaders = requestHeaders req
+        dateHeader = lookup hIfModifiedSince reqHeaders
+        parsedDate =  dateHeader >>= parseRfc1123Date
+        maybeGreater = do
+            lastM <- modified
+            ifModifiedSince <- parsedDate
+            return (lastM > ifModifiedSince)
+    if maybeGreater == Just True
+        then m16 r
+        else lift $ halt HTTP.status304
+
+l15 r@Resource{..} = do
+    req <- lift request
+    now <- lift requestTime
+    let reqHeaders = requestHeaders req
+        dateHeader = lookup hIfModifiedSince reqHeaders
+        parsedDate =  dateHeader >>= parseRfc1123Date
+        maybeGreater = (> now) <$> parsedDate
+    if maybeGreater == Just True
+        then m16 r
+        else l17 r
+
+l14 r@Resource{..} = do
+    req <- lift request
+    let reqHeaders = requestHeaders req
+        dateHeader = lookup hIfModifiedSince reqHeaders
+        validDate = isJust (dateHeader >>= parseRfc1123Date)
+    if validDate
+        then l15 r
+        else m16 r
+
+l13 r@Resource{..} = do
+    req <- lift request
+    let reqHeaders = requestHeaders req
+    case lookup hIfModifiedSince reqHeaders of
+        (Just _h) ->
+            l14 r
+        Nothing ->
+            m16 r
+
+l07 r = do
+    req <- lift request
+    if requestMethod req == HTTP.methodPost
+        then m07 r
+        else lift $ halt HTTP.status404
+
+l05 r@Resource{..} = do
+    moved <- lift movedTemporarily
+    case moved of
+        (Just loc) -> do
+            lift $ addResponseHeader ("Location", loc)
+            lift $ halt HTTP.status307
+        Nothing ->
+            m05 r
 
 ------------------------------------------------------------------------------
 -- M column

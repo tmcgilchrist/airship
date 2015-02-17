@@ -466,10 +466,33 @@ l05 r@Resource{..} = do
 -- M column
 ------------------------------------------------------------------------------
 
-m20 = undefined
-m16 = undefined
-m07 = undefined
-m05 = undefined
+m20 r@Resource{..} = do
+    deleteAccepted <- lift deleteResource
+    if deleteAccepted
+        then do
+            completed <- lift deleteCompleted
+            if completed
+                then o20 r
+                else lift $ halt HTTP.status202
+        else lift $ halt HTTP.status500
+
+m16 r = do
+    req <- lift request
+    if requestMethod req == HTTP.methodDelete
+        then m20 r
+        else n16 r
+
+m07 r@Resource{..} = do
+    allowMissing <- lift allowMissingPost
+    if allowMissing
+        then n11 r
+        else lift $ halt HTTP.status404
+
+m05 r = do
+    req <- lift request
+    if requestMethod req == HTTP.methodPost
+        then n05 r
+        else lift $ halt HTTP.status410
 
 ------------------------------------------------------------------------------
 -- N column

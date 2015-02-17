@@ -60,7 +60,7 @@ serverError = finishWith (Response status500 [] Empty)
 
 defaultResource :: Resource s m
 defaultResource = Resource { allowMissingPost       = return False
-                           , allowedMethods         = return [methodGet]
+                           , allowedMethods         = return [methodGet, methodHead]
                            , contentTypesProvided   = return [("text/html", helloWorld)]
                            , createPath             = return Nothing
                            , deleteCompleted        = return False

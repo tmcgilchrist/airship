@@ -10,16 +10,27 @@ import           Airship.Date (parseRfc1123Date)
 import           Airship.Headers (addResponseHeader)
 import           Airship.Types (ContentType, Webmachine, Response(..),
                                 ResponseBody, halt, request, requestTime)
-import           Airship.Resource(Resource(..))
+import           Airship.Resource(Resource(..), PostResponse(..))
 import           Airship.Parsers (parseEtagList)
 import           Control.Applicative ((<$>))
 import           Control.Monad.Trans (lift)
 import           Control.Monad.Trans.State.Strict (StateT(..), evalStateT,
                                                    modify)
+
+import           Data.ByteString (ByteString)
+import           Blaze.ByteString.Builder (toByteString)
 import qualified Data.CaseInsensitive as CI
 import           Data.Maybe (fromJust, isJust)
+import           Data.Text (Text)
+
 import qualified Network.HTTP.Types as HTTP
-import           Network.Wai (requestMethod, requestHeaders)
+import           Network.Wai (requestMethod, requestHeaders, pathInfo)
+
+------------------------------------------------------------------------------
+-- HTTP Headers
+-- These are headers not defined for us already in
+-- Network.HTTP.Types
+------------------------------------------------------------------------------
 
 hAcceptCharset :: HTTP.HeaderName
 hAcceptCharset = "Accept-Charset"
@@ -39,17 +50,40 @@ hIfNoneMatch = "If-None-Match"
 hIfModifiedSince :: HTTP.HeaderName
 hIfModifiedSince = "If-Modified-Since"
 
+------------------------------------------------------------------------------
+-- FlowState: StateT used for recording information as we walk the decision
+-- tree
+------------------------------------------------------------------------------
+
 data FlowState m = FlowState
     { _contentType :: Maybe (ContentType, ResponseBody m)
     }
 
-type Flow s m = Resource s m -> StateT (FlowState m) (Webmachine s m) (Response m)
+type FlowStateT s m a = StateT (FlowState m) (Webmachine s m) a
+
+type Flow s m = Resource s m -> FlowStateT s m (Response m)
 
 initFlowState :: FlowState m
 initFlowState = FlowState Nothing
 
 flow :: Monad m => Resource s m -> Webmachine s m (Response m)
 flow r = evalStateT (b13 r) initFlowState
+
+------------------------------------------------------------------------------
+-- Decision Helpers
+------------------------------------------------------------------------------
+
+negotiateContentTypesAccepted :: Monad m => Webmachine s m ()
+negotiateContentTypesAccepted = undefined
+
+appendRequestPath :: Monad m => [Text] -> Webmachine s m (ByteString)
+appendRequestPath ts = do
+    currentPath <- pathInfo <$> request
+    return $ toByteString (HTTP.encodePathSegments (currentPath ++ ts))
+
+------------------------------------------------------------------------------
+-- Type definitions for all decision nodes
+------------------------------------------------------------------------------
 
 b13, b12, b11, b10, b09, b08, b07, b06, b05, b04, b03 :: Monad m => Flow s m
 c04, c03 :: Monad m => Flow s m
@@ -498,9 +532,37 @@ m05 r = do
 -- N column
 ------------------------------------------------------------------------------
 
-n16 = undefined
-n11 = undefined
-n05 = undefined
+n16 r = do
+    req <- lift request
+    if requestMethod req == HTTP.methodPost
+        then n11 r
+        else o16 r
+
+n11 r@Resource{..} = lift processPost >>= flip processPostAction r
+
+processPostAction :: Monad m => PostResponse s m -> Flow s m
+processPostAction (PostCreate ts) r = do
+    loc <- lift $ appendRequestPath ts
+    lift $ addResponseHeader ("Location", loc)
+    lift negotiateContentTypesAccepted
+    p11 r
+processPostAction (PostCreateRedirect ts) _r = do
+    loc <- lift $ appendRequestPath ts
+    lift $ addResponseHeader ("Location", loc)
+    lift negotiateContentTypesAccepted
+    lift $ halt HTTP.status303
+processPostAction (PostProcess p) r =
+    lift p >> p11 r
+processPostAction (PostProcessRedirect ts) _r = do
+    locBs <- lift ts
+    lift $ addResponseHeader ("Location", locBs)
+    lift $ halt HTTP.status303
+
+n05 r@Resource{..} = do
+    allow <- lift allowMissingPost
+    if allow
+        then n11 r
+        else lift $ halt HTTP.status410
 
 ------------------------------------------------------------------------------
 -- O column

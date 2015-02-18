@@ -5,7 +5,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Airship.Resource
-    ( Resource(..)
+    ( PostResponse(..)
+    , Resource(..)
     , ContentType
     , serverError
     , defaultResource
@@ -22,6 +23,17 @@ import Blaze.ByteString.Builder.ByteString (fromByteString)
 import Blaze.ByteString.Builder.Html.Utf8 (fromHtmlEscapedText)
 
 import Network.HTTP.Types
+
+-- Credit for this idea goes to Richard Wallace (purefn) on Webcrank.
+-- This creates an enumeration for the four possibilities of two binary
+-- decisions:
+-- postIsCreate = True | False
+-- redirect     = True | False
+data PostResponse s m
+    = PostCreate [Text] -- ^ Treat this request as a PUT
+    | PostCreateRedirect [Text] -- ^ Treat this request as a PUT, then redirect
+    | PostProcess (Handler s m ()) -- ^ Process, but don't redirect
+    | PostProcessRedirect (Handler s m ByteString)
 
 data Resource s m =
     Resource { allowMissingPost         :: Handler s m Bool
@@ -42,9 +54,8 @@ data Resource s m =
                                         -- or some 'path' type
              , movedPermanently         :: Handler s m (Maybe ByteString)
              , movedTemporarily         :: Handler s m (Maybe ByteString)
-             , postIsCreate             :: Handler s m Bool
              , previouslyExisted        :: Handler s m Bool
-             , processPost              :: Handler s m Bool
+             , processPost              :: Handler s m (PostResponse s m)
              , resourceExists           :: Handler s m Bool
              , serviceAvailable         :: Handler s m Bool
              , uriTooLong               :: Handler s m Bool
@@ -72,9 +83,8 @@ defaultResource = Resource { allowMissingPost       = return False
                            , malformedRequest       = return False
                            , movedPermanently       = return Nothing
                            , movedTemporarily       = return Nothing
-                           , postIsCreate           = return False
                            , previouslyExisted      = return False
-                           , processPost            = return False
+                           , processPost            = return (PostProcess (return ()))
                            , resourceExists         = return True
                            , serviceAvailable       = return True
                            , uriTooLong             = return False

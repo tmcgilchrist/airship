@@ -210,8 +210,9 @@ c04 r@Resource{..} = do
         requestedType = CI.mk (fromJust (lookup HTTP.hAccept reqHeaders))
     if requestedType `elem` types
         then do
+            let body = fromJust (lookup requestedType provided)
             modify (\fs -> fs { _contentType =
-                                    Just (requestedType, undefined) })
+                                    Just (requestedType, body) })
             d04 r
         else lift $ halt HTTP.status406
 

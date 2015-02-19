@@ -46,6 +46,7 @@ data Resource s m =
              , forbidden                :: Handler s m Bool
              , implemented              :: Handler s m Bool
              , isAuthorized             :: Handler s m Bool
+             , isConflict               :: Handler s m Bool
              , knownContentType         :: Handler s m Bool
              , lastModified             :: Handler s m (Maybe UTCTime)
              , languageAvailable        :: Handler s m Bool
@@ -54,6 +55,7 @@ data Resource s m =
                                         -- or some 'path' type
              , movedPermanently         :: Handler s m (Maybe ByteString)
              , movedTemporarily         :: Handler s m (Maybe ByteString)
+             , multipleChoices          :: Handler s m Bool
              , previouslyExisted        :: Handler s m Bool
              , processPost              :: Handler s m (PostResponse s m)
              , resourceExists           :: Handler s m Bool
@@ -77,12 +79,14 @@ defaultResource = Resource { allowMissingPost       = return False
                            , forbidden              = return False
                            , implemented            = return True
                            , isAuthorized           = return True
+                           , isConflict             = return False
                            , knownContentType       = return True
                            , lastModified           = return Nothing
                            , languageAvailable      = return True
                            , malformedRequest       = return False
                            , movedPermanently       = return Nothing
                            , movedTemporarily       = return Nothing
+                           , multipleChoices        = return False
                            , previouslyExisted      = return False
                            , processPost            = return (PostProcess (return ()))
                            , resourceExists         = return True

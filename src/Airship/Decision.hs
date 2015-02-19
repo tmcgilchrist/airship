@@ -9,7 +9,8 @@ module Airship.Decision
 import           Airship.Date (parseRfc1123Date)
 import           Airship.Headers (addResponseHeader)
 import           Airship.Types (ContentType, Webmachine, Response(..),
-                                ResponseBody, halt, request, requestTime)
+                                ResponseBody(..), halt, request, requestTime,
+                                getResponseBody, getResponseHeaders)
 import           Airship.Resource(Resource(..), PostResponse(..))
 import           Airship.Parsers (parseEtagList)
 import           Control.Applicative ((<$>))
@@ -22,6 +23,7 @@ import           Blaze.ByteString.Builder (toByteString)
 import qualified Data.CaseInsensitive as CI
 import           Data.Maybe (fromJust, isJust)
 import           Data.Text (Text)
+import           Data.Time.Clock (UTCTime)
 
 import qualified Network.HTTP.Types as HTTP
 import           Network.Wai (requestMethod, requestHeaders, pathInfo)
@@ -76,10 +78,19 @@ flow r = evalStateT (b13 r) initFlowState
 negotiateContentTypesAccepted :: Monad m => Webmachine s m ()
 negotiateContentTypesAccepted = undefined
 
-appendRequestPath :: Monad m => [Text] -> Webmachine s m (ByteString)
+appendRequestPath :: Monad m => [Text] -> Webmachine s m ByteString
 appendRequestPath ts = do
     currentPath <- pathInfo <$> request
     return $ toByteString (HTTP.encodePathSegments (currentPath ++ ts))
+
+requestHeaderDate :: Monad m => HTTP.HeaderName ->
+                                Webmachine s m (Maybe UTCTime)
+requestHeaderDate headerName = do
+    req <- request
+    let reqHeaders = requestHeaders req
+        dateHeader = lookup headerName reqHeaders
+        parsedDate = dateHeader >>= parseRfc1123Date
+    return parsedDate
 
 ------------------------------------------------------------------------------
 -- Type definitions for all decision nodes
@@ -312,14 +323,9 @@ g07 r@Resource{..} = do
 ------------------------------------------------------------------------------
 
 h12 r@Resource{..} = do
-    -- TODO:
-    -- reduce duplication with 'h11'
-    req <- lift request
     modified <- lift lastModified
-    let reqHeaders = requestHeaders req
-        dateHeader = lookup hIfUnmodifiedSince reqHeaders
-        parsedDate =  dateHeader >>= parseRfc1123Date
-        maybeGreater = do
+    parsedDate <- lift $ requestHeaderDate hIfUnmodifiedSince
+    let maybeGreater = do
             lastM <- modified
             headerDate <- parsedDate
             return (lastM > headerDate)
@@ -328,11 +334,8 @@ h12 r@Resource{..} = do
         else i12 r
 
 h11 r@Resource{..} = do
-    req <- lift request
-    let reqHeaders = requestHeaders req
-        dateHeader = lookup hIfUnmodifiedSince reqHeaders
-        validDate = isJust (dateHeader >>= parseRfc1123Date)
-    if validDate
+    parsedDate <- lift $ requestHeaderDate hIfUnmodifiedSince
+    if isJust parsedDate
         then h12 r
         else i12 r
 
@@ -439,12 +442,9 @@ k05 r@Resource{..} = do
 ------------------------------------------------------------------------------
 
 l17 r@Resource{..} = do
-    req <- lift request
+    parsedDate <- lift $ requestHeaderDate hIfModifiedSince
     modified <- lift lastModified
-    let reqHeaders = requestHeaders req
-        dateHeader = lookup hIfModifiedSince reqHeaders
-        parsedDate =  dateHeader >>= parseRfc1123Date
-        maybeGreater = do
+    let maybeGreater = do
             lastM <- modified
             ifModifiedSince <- parsedDate
             return (lastM > ifModifiedSince)
@@ -453,12 +453,9 @@ l17 r@Resource{..} = do
         else lift $ halt HTTP.status304
 
 l15 r@Resource{..} = do
-    req <- lift request
+    parsedDate <- lift $ requestHeaderDate hIfModifiedSince
     now <- lift requestTime
-    let reqHeaders = requestHeaders req
-        dateHeader = lookup hIfModifiedSince reqHeaders
-        parsedDate =  dateHeader >>= parseRfc1123Date
-        maybeGreater = (> now) <$> parsedDate
+    let maybeGreater = (> now) <$> parsedDate
     if maybeGreater == Just True
         then m16 r
         else l17 r
@@ -540,16 +537,18 @@ n16 r = do
 
 n11 r@Resource{..} = lift processPost >>= flip processPostAction r
 
+create :: Monad m => [Text] -> Webmachine s m ()
+create ts = do
+    loc <- appendRequestPath ts
+    addResponseHeader ("Location", loc)
+    negotiateContentTypesAccepted
+
 processPostAction :: Monad m => PostResponse s m -> Flow s m
 processPostAction (PostCreate ts) r = do
-    loc <- lift $ appendRequestPath ts
-    lift $ addResponseHeader ("Location", loc)
-    lift negotiateContentTypesAccepted
+    lift $ create ts
     p11 r
 processPostAction (PostCreateRedirect ts) _r = do
-    loc <- lift $ appendRequestPath ts
-    lift $ addResponseHeader ("Location", loc)
-    lift negotiateContentTypesAccepted
+    lift $ create ts
     lift $ halt HTTP.status303
 processPostAction (PostProcess p) r =
     lift p >> p11 r
@@ -568,14 +567,48 @@ n05 r@Resource{..} = do
 -- O column
 ------------------------------------------------------------------------------
 
-o20 = undefined
-o18 = undefined
-o16 = undefined
-o14 = undefined
+o20 r = do
+    body <- lift getResponseBody
+    -- ResponseBody is a little tough to make an instance of 'Eq',
+    -- so we just use a pattern match
+    case body of
+        Empty   -> lift $ halt HTTP.status204
+        _       -> o18 r
+
+o18 Resource{..} = do
+    multiple <- lift multipleChoices
+    if multiple
+        then lift $ halt HTTP.status300
+        else
+            -- TODO: set etag, expiration, etc. headers
+            lift $ halt HTTP.status200
+
+o16 r = do
+    req <- lift request
+    if requestMethod req == HTTP.methodPut
+        then o14 r
+        else o18 r
+
+o14 r@Resource{..} = do
+    conflict <- lift isConflict
+    if conflict
+        then lift $ halt HTTP.status409
+        else lift negotiateContentTypesAccepted >> p11 r
 
 ------------------------------------------------------------------------------
 -- P column
 ------------------------------------------------------------------------------
 
-p11 = undefined
-p03 = undefined
+p11 r = do
+    headers <- lift getResponseHeaders
+    case lookup HTTP.hLocation headers of
+        (Just _) ->
+            lift $ halt HTTP.status201
+        _ ->
+            o20 r
+
+p03 r@Resource{..} = do
+    conflict <- lift isConflict
+    if conflict
+        then lift $ halt HTTP.status409
+        else p11 r

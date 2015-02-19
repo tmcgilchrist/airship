@@ -10,7 +10,8 @@ import           Airship.Date (parseRfc1123Date)
 import           Airship.Headers (addResponseHeader)
 import           Airship.Types (ContentType, Webmachine, Response(..),
                                 ResponseBody(..), halt, request, requestTime,
-                                getResponseBody, getResponseHeaders)
+                                getResponseBody, getResponseHeaders,
+                                putResponseBody)
 import           Airship.Resource(Resource(..), PostResponse(..))
 import           Airship.Parsers (parseEtagList)
 import           Control.Applicative ((<$>))
@@ -213,6 +214,7 @@ c04 r@Resource{..} = do
             let body = fromJust (lookup requestedType provided)
             modify (\fs -> fs { _contentType =
                                     Just (requestedType, body) })
+            lift $ putResponseBody body
             d04 r
         else lift $ halt HTTP.status406
 
@@ -578,8 +580,12 @@ o18 Resource{..} = do
     multiple <- lift multipleChoices
     if multiple
         then lift $ halt HTTP.status300
-        else
+        else do
             -- TODO: set etag, expiration, etc. headers
+            provided <- lift contentTypesProvided
+            let (cType, body)  = head provided
+            lift $ putResponseBody body
+            lift $ addResponseHeader ("Content-Type", CI.original cType)
             lift $ halt HTTP.status200
 
 o16 r = do

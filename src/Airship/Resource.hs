@@ -7,7 +7,6 @@
 module Airship.Resource
     ( PostResponse(..)
     , Resource(..)
-    , ContentType
     , serverError
     , defaultResource
     , singletonContentType

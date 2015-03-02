@@ -28,7 +28,6 @@ import           Data.Time.Clock (UTCTime)
 import           Network.HTTP.Media
 import qualified Network.HTTP.Types as HTTP
 import           Network.Wai (requestMethod, requestHeaders, pathInfo)
-import           Debug.Trace
 
 ------------------------------------------------------------------------------
 -- HTTP Headers
@@ -125,7 +124,7 @@ b13 r@Resource{..} = do
         else lift $ halt HTTP.status503
 
 b12 r@Resource{..} = do
-    -- known methodhas
+    -- known method
     req <- lift request
     let knownMethods = [ HTTP.methodGet
                        , HTTP.methodPost
@@ -199,7 +198,6 @@ b03 r@Resource{..} = do
 ------------------------------------------------------------------------------
 -- C column
 ------------------------------------------------------------------------------
-
 
 c04 r@Resource{..} = do
     req <- lift request

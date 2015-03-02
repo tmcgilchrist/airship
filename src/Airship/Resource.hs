@@ -12,8 +12,7 @@ module Airship.Resource
     , singletonContentType
     ) where
 
-import Airship.Types (ContentType, Handler, Response(..), ResponseBody(..),
-                      finishWith)
+import Airship.Types (Handler, Response(..), ResponseBody(..), finishWith)
 
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
@@ -22,6 +21,7 @@ import Blaze.ByteString.Builder.ByteString (fromByteString)
 import Blaze.ByteString.Builder.Html.Utf8 (fromHtmlEscapedText)
 
 import Network.HTTP.Types
+import Network.HTTP.Media (MediaType)
 
 -- Credit for this idea goes to Richard Wallace (purefn) on Webcrank.
 -- This creates an enumeration for the four possibilities of two binary
@@ -37,7 +37,7 @@ data PostResponse s m
 data Resource s m =
     Resource { allowMissingPost         :: Handler s m Bool
              , allowedMethods           :: Handler s m [Method]
-             , contentTypesProvided     :: Handler s m [(ContentType, ResponseBody m)]
+             , contentTypesProvided     :: Handler s m [(MediaType, ResponseBody m)]
              , createPath               :: Handler s m (Maybe Text)
              , deleteCompleted          :: Handler s m Bool
              , deleteResource           :: Handler s m Bool
@@ -97,5 +97,5 @@ defaultResource = Resource { allowMissingPost       = return False
 helloWorld :: ResponseBody m
 helloWorld = ResponseBuilder (fromByteString "Hello, world!")
 
-singletonContentType :: ContentType -> Text -> [(ContentType, ResponseBody m)]
+singletonContentType :: MediaType -> Text -> [(MediaType, ResponseBody m)]
 singletonContentType ct tex = [(ct, ResponseBuilder (fromHtmlEscapedText tex))]

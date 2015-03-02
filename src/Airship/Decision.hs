@@ -8,7 +8,7 @@ module Airship.Decision
 
 import           Airship.Date (parseRfc1123Date)
 import           Airship.Headers (addResponseHeader)
-import           Airship.Types (ContentType, Webmachine, Response(..),
+import           Airship.Types (Webmachine, Response(..),
                                 ResponseBody(..), halt, request, requestTime,
                                 getResponseBody, getResponseHeaders,
                                 putResponseBody)
@@ -21,13 +21,14 @@ import           Control.Monad.Trans.State.Strict (StateT(..), evalStateT,
 
 import           Data.ByteString (ByteString)
 import           Blaze.ByteString.Builder (toByteString)
-import qualified Data.CaseInsensitive as CI
 import           Data.Maybe (fromJust, isJust)
 import           Data.Text (Text)
 import           Data.Time.Clock (UTCTime)
 
+import           Network.HTTP.Media
 import qualified Network.HTTP.Types as HTTP
 import           Network.Wai (requestMethod, requestHeaders, pathInfo)
+import           Debug.Trace
 
 ------------------------------------------------------------------------------
 -- HTTP Headers
@@ -59,7 +60,7 @@ hIfModifiedSince = "If-Modified-Since"
 ------------------------------------------------------------------------------
 
 data FlowState m = FlowState
-    { _contentType :: Maybe (ContentType, ResponseBody m)
+    { _contentType :: Maybe (MediaType, ResponseBody m)
     }
 
 type FlowStateT s m a = StateT (FlowState m) (Webmachine s m) a
@@ -124,7 +125,7 @@ b13 r@Resource{..} = do
         else lift $ halt HTTP.status503
 
 b12 r@Resource{..} = do
-    -- known method
+    -- known methodhas
     req <- lift request
     let knownMethods = [ HTTP.methodGet
                        , HTTP.methodPost
@@ -199,24 +200,23 @@ b03 r@Resource{..} = do
 -- C column
 ------------------------------------------------------------------------------
 
+
 c04 r@Resource{..} = do
-    -- TODO: do proper content-type negotiation
     req <- lift request
     provided <- lift contentTypesProvided
+    let reqHeaders = requestHeaders req
+        result = do
+            acceptStr <- lookup HTTP.hAccept reqHeaders
+            acceptTyp <- parseAccept acceptStr
+            resource <- mapAcceptMedia provided acceptStr
+            Just (acceptTyp, resource)
 
-    let types = fmap fst provided
-        reqHeaders = requestHeaders req
-        -- 'fromJust' should be safe because we should only be called
-        -- if an Accept header is present
-        requestedType = CI.mk (fromJust (lookup HTTP.hAccept reqHeaders))
-    if requestedType `elem` types
-        then do
-            let body = fromJust (lookup requestedType provided)
-            modify (\fs -> fs { _contentType =
-                                    Just (requestedType, body) })
-            lift $ putResponseBody body
-            d04 r
-        else lift $ halt HTTP.status406
+    case result of
+      Nothing -> lift $ halt HTTP.status406
+      Just res -> do
+        modify (\fs -> fs { _contentType = Just res })
+        lift $ putResponseBody $ snd res
+        d04 r
 
 c03 r@Resource{..} = do
     req <- lift request
@@ -585,7 +585,7 @@ o18 Resource{..} = do
             provided <- lift contentTypesProvided
             let (cType, body)  = head provided
             lift $ putResponseBody body
-            lift $ addResponseHeader ("Content-Type", CI.original cType)
+            lift $ addResponseHeader ("Content-Type", renderHeader cType)
             lift $ halt HTTP.status200
 
 o16 r = do

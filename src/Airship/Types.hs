@@ -9,8 +9,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Airship.Types
-    ( ContentType
-    , ETag(..)
+    ( ETag(..)
     , Webmachine
     , Handler
     , Response(..)
@@ -35,7 +34,6 @@ import Blaze.ByteString.Builder (Builder)
 import Blaze.ByteString.Builder.ByteString (fromByteString)
 
 import Data.ByteString.Char8
-import Data.CaseInsensitive (CI)
 import Data.Time.Clock (UTCTime)
 
 import Control.Applicative (Applicative, (<$>))
@@ -59,8 +57,6 @@ import qualified Network.Wai as Wai
 data RequestReader = RequestReader { _now :: UTCTime
                                    , _request :: Wai.Request
                                    }
-
-type ContentType = CI ByteString
 
 data ETag = Strong ByteString
           | Weak ByteString

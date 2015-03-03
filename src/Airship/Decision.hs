@@ -76,8 +76,17 @@ flow r = evalStateT (b13 r) initFlowState
 -- Decision Helpers
 ------------------------------------------------------------------------------
 
-negotiateContentTypesAccepted :: Monad m => Webmachine s m ()
-negotiateContentTypesAccepted = undefined
+negotiateContentTypesAccepted :: Monad m => Resource s m -> FlowStateT s m ()
+negotiateContentTypesAccepted Resource{..} = do
+    req <- lift request
+    accepted <- lift contentTypesAccepted
+    let reqHeaders = requestHeaders req
+        result = do
+            cType <- lookup HTTP.hContentType reqHeaders
+            mapContentMedia accepted cType
+    case result of
+        (Just process) -> lift process
+        Nothing -> lift $ halt HTTP.status415
 
 appendRequestPath :: Monad m => [Text] -> Webmachine s m ByteString
 appendRequestPath ts = do
@@ -536,18 +545,18 @@ n16 r = do
 
 n11 r@Resource{..} = lift processPost >>= flip processPostAction r
 
-create :: Monad m => [Text] -> Webmachine s m ()
-create ts = do
-    loc <- appendRequestPath ts
-    addResponseHeader ("Location", loc)
-    negotiateContentTypesAccepted
+create :: Monad m => [Text] -> Resource s m -> FlowStateT s m ()
+create ts r = do
+    loc <- lift (appendRequestPath ts)
+    lift (addResponseHeader ("Location", loc))
+    negotiateContentTypesAccepted r
 
 processPostAction :: Monad m => PostResponse s m -> Flow s m
 processPostAction (PostCreate ts) r = do
-    lift $ create ts
+    create ts r
     p11 r
-processPostAction (PostCreateRedirect ts) _r = do
-    lift $ create ts
+processPostAction (PostCreateRedirect ts) r = do
+    create ts r
     lift $ halt HTTP.status303
 processPostAction (PostProcess p) r =
     lift p >> p11 r
@@ -596,7 +605,7 @@ o14 r@Resource{..} = do
     conflict <- lift isConflict
     if conflict
         then lift $ halt HTTP.status409
-        else lift negotiateContentTypesAccepted >> p11 r
+        else negotiateContentTypesAccepted r >> p11 r
 
 ------------------------------------------------------------------------------
 -- P column

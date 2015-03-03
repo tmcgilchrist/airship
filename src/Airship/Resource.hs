@@ -17,7 +17,6 @@ import Airship.Types (Handler, Response(..), ResponseBody(..), finishWith)
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import Data.ByteString (ByteString)
-import Blaze.ByteString.Builder.ByteString (fromByteString)
 import Blaze.ByteString.Builder.Html.Utf8 (fromHtmlEscapedText)
 
 import Network.HTTP.Types
@@ -37,6 +36,7 @@ data PostResponse s m
 data Resource s m =
     Resource { allowMissingPost         :: Handler s m Bool
              , allowedMethods           :: Handler s m [Method]
+             , contentTypesAccepted     :: Handler s m [(MediaType, Handler s m ())]
              , contentTypesProvided     :: Handler s m [(MediaType, ResponseBody m)]
              , createPath               :: Handler s m (Maybe Text)
              , deleteCompleted          :: Handler s m Bool
@@ -70,7 +70,8 @@ serverError = finishWith (Response status500 [] Empty)
 defaultResource :: Resource s m
 defaultResource = Resource { allowMissingPost       = return False
                            , allowedMethods         = return [methodGet, methodHead]
-                           , contentTypesProvided   = return [("text/html", helloWorld)]
+                           , contentTypesAccepted   = return []
+                           , contentTypesProvided   = return []
                            , createPath             = return Nothing
                            , deleteCompleted        = return False
                            , deleteResource         = return False
@@ -93,9 +94,6 @@ defaultResource = Resource { allowMissingPost       = return False
                            , uriTooLong             = return False
                            , validContentHeaders    = return True
                            }
-
-helloWorld :: ResponseBody m
-helloWorld = ResponseBuilder (fromByteString "Hello, world!")
 
 singletonContentType :: MediaType -> Text -> [(MediaType, ResponseBody m)]
 singletonContentType ct tex = [(ct, ResponseBuilder (fromHtmlEscapedText tex))]

@@ -21,9 +21,12 @@ executable airship
   default-language:    Haskell2010
   build-depends:        base >=4.7 && <4.8
                       , airship
+                      , blaze-builder == 0.3.*
                       , bytestring
                       , http-types >= 0.7
+                      , mtl == 2.2.*
                       , text
+                      , unordered-containers
                       , wai == 3.0.2.*
                       , warp == 3.0.5.*
 

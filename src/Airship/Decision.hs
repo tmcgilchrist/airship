@@ -18,6 +18,7 @@ import           Control.Applicative ((<$>))
 import           Control.Monad.Trans (lift)
 import           Control.Monad.Trans.State.Strict (StateT(..), evalStateT,
                                                    modify)
+import           Control.Monad.Writer.Class (tell)
 
 import           Data.ByteString (ByteString)
 import           Blaze.ByteString.Builder (toByteString)
@@ -71,6 +72,9 @@ initFlowState = FlowState Nothing
 
 flow :: Monad m => Resource s m -> Webmachine s m (Response m)
 flow r = evalStateT (b13 r) initFlowState
+
+trace :: Monad m => Text -> FlowStateT s m ()
+trace t = lift $ tell [t]
 
 ------------------------------------------------------------------------------
 -- Decision Helpers
@@ -127,12 +131,14 @@ p11, p03 :: Monad m => Flow s m
 ------------------------------------------------------------------------------
 
 b13 r@Resource{..} = do
+    trace "b13"
     available <- lift serviceAvailable
     if available
         then b12 r
         else lift $ halt HTTP.status503
 
 b12 r@Resource{..} = do
+    trace "b12"
     -- known method
     req <- lift request
     let knownMethods = [ HTTP.methodGet
@@ -150,12 +156,14 @@ b12 r@Resource{..} = do
         else lift $ halt HTTP.status501
 
 b11 r@Resource{..} = do
+    trace "b11"
     long <- lift uriTooLong
     if long
         then lift $ halt HTTP.status414
         else b10 r
 
 b10 r@Resource{..} = do
+    trace "b10"
     req <- lift request
     allowed <- lift allowedMethods
     if requestMethod req `elem` allowed
@@ -163,42 +171,49 @@ b10 r@Resource{..} = do
         else lift $ halt HTTP.status405
 
 b09 r@Resource{..} = do
+    trace "b09"
     malformed <- lift malformedRequest
     if malformed
         then lift $ halt HTTP.status400
         else b08 r
 
 b08 r@Resource{..} = do
+    trace "b08"
     authorized <- lift isAuthorized
     if authorized
         then b07 r
         else lift $ halt HTTP.status401
 
 b07 r@Resource{..} = do
+    trace "b07"
     forbid <- lift forbidden
     if forbid
         then lift $ halt HTTP.status403
         else b06 r
 
 b06 r@Resource{..} = do
+    trace "b06"
     validC <- lift validContentHeaders
     if validC
         then b05 r
         else lift $ halt HTTP.status501
 
 b05 r@Resource{..} = do
+    trace "b05"
     known <- lift knownContentType
     if known
         then b04 r
         else lift $ halt HTTP.status415
 
 b04 r@Resource{..} = do
+    trace "b04"
     large <- lift entityTooLarge
     if large
         then lift $ halt HTTP.status413
         else b03 r
 
 b03 r@Resource{..} = do
+    trace "b03"
     req <- lift request
     if requestMethod req == HTTP.methodOptions
         then lift $ halt HTTP.status200
@@ -209,6 +224,7 @@ b03 r@Resource{..} = do
 ------------------------------------------------------------------------------
 
 c04 r@Resource{..} = do
+    trace "c04"
     req <- lift request
     provided <- lift contentTypesProvided
     let reqHeaders = requestHeaders req
@@ -226,6 +242,7 @@ c04 r@Resource{..} = do
         d04 r
 
 c03 r@Resource{..} = do
+    trace "c03"
     req <- lift request
     let reqHeaders = requestHeaders req
     case lookup HTTP.hAccept reqHeaders of
@@ -239,12 +256,14 @@ c03 r@Resource{..} = do
 ------------------------------------------------------------------------------
 
 d05 r@Resource{..} = do
+    trace "d05"
     langAvailable <- lift languageAvailable
     if langAvailable
         then e05 r
         else lift $ halt HTTP.status406
 
 d04 r@Resource{..} = do
+    trace "d04"
     req <- lift request
     let reqHeaders = requestHeaders req
     case lookup HTTP.hAcceptLanguage reqHeaders of
@@ -257,11 +276,13 @@ d04 r@Resource{..} = do
 -- D column
 ------------------------------------------------------------------------------
 
-e06 r@Resource{..} =
+e06 r@Resource{..} = do
+    trace "e06"
     -- TODO: charset negotiation
     f06 r
 
 e05 r@Resource{..} = do
+    trace "e05"
     req <- lift request
     let reqHeaders = requestHeaders req
     case lookup hAcceptCharset reqHeaders of
@@ -274,11 +295,13 @@ e05 r@Resource{..} = do
 -- F column
 ------------------------------------------------------------------------------
 
-f07 r@Resource{..} =
-   -- TODO: encoding negotiation
-   g07 r
+f07 r@Resource{..} = do
+    trace "f07"
+    -- TODO: encoding negotiation
+    g07 r
 
 f06 r@Resource{..} = do
+    trace "f06"
     req <- lift request
     let reqHeaders = requestHeaders req
     case lookup hAcceptEncoding reqHeaders of
@@ -292,6 +315,7 @@ f06 r@Resource{..} = do
 ------------------------------------------------------------------------------
 
 g11 r@Resource{..} = do
+    trace "g11"
     req <- lift request
     let reqHeaders = requestHeaders req
         ifMatch = fromJust (lookup hIfMatch reqHeaders)
@@ -301,6 +325,7 @@ g11 r@Resource{..} = do
         else h10 r
 
 g09 r@Resource{..} = do
+    trace "g09"
     req <- lift request
     let reqHeaders = requestHeaders req
     case fromJust (lookup hIfMatch reqHeaders) of
@@ -311,6 +336,7 @@ g09 r@Resource{..} = do
             g11 r
 
 g08 r@Resource{..} = do
+    trace "g07"
     req <- lift request
     let reqHeaders = requestHeaders req
     case lookup hIfMatch reqHeaders of
@@ -320,6 +346,7 @@ g08 r@Resource{..} = do
             h10 r
 
 g07 r@Resource{..} = do
+    trace "g07"
     -- TODO: set Vary headers
     exists <- lift resourceExists
     if exists
@@ -331,6 +358,7 @@ g07 r@Resource{..} = do
 ------------------------------------------------------------------------------
 
 h12 r@Resource{..} = do
+    trace "h12"
     modified <- lift lastModified
     parsedDate <- lift $ requestHeaderDate hIfUnmodifiedSince
     let maybeGreater = do
@@ -342,12 +370,14 @@ h12 r@Resource{..} = do
         else i12 r
 
 h11 r@Resource{..} = do
+    trace "h11"
     parsedDate <- lift $ requestHeaderDate hIfUnmodifiedSince
     if isJust parsedDate
         then h12 r
         else i12 r
 
 h10 r@Resource{..} = do
+    trace "h10"
     req <- lift request
     let reqHeaders = requestHeaders req
     case lookup hIfUnmodifiedSince reqHeaders of
@@ -357,6 +387,7 @@ h10 r@Resource{..} = do
             i12 r
 
 h07 r@Resource {..} = do
+    trace "h07"
     req <- lift request
     let reqHeaders = requestHeaders req
     case fromJust (lookup hIfMatch reqHeaders) of
@@ -371,6 +402,7 @@ h07 r@Resource {..} = do
 ------------------------------------------------------------------------------
 
 i13 r@Resource{..} = do
+    trace "i13"
     req <- lift request
     let reqHeaders = requestHeaders req
     case fromJust (lookup hIfNoneMatch reqHeaders) of
@@ -381,6 +413,7 @@ i13 r@Resource{..} = do
             k13 r
 
 i12 r@Resource{..} = do
+    trace "i12"
     req <- lift request
     let reqHeaders = requestHeaders req
     case lookup hIfNoneMatch reqHeaders of
@@ -390,12 +423,14 @@ i12 r@Resource{..} = do
             l13 r
 
 i07 r = do
+    trace "i07"
     req <- lift request
     if requestMethod req == HTTP.methodPut
         then i04 r
         else k07 r
 
 i04 r@Resource{..} = do
+    trace "i04"
     moved <- lift movedPermanently
     case moved of
         (Just loc) -> do
@@ -409,6 +444,7 @@ i04 r@Resource{..} = do
 ------------------------------------------------------------------------------
 
 j18 _ = do
+    trace "j18"
     req <- lift request
     let getOrHead = [ HTTP.methodGet
                     , HTTP.methodHead
@@ -422,6 +458,7 @@ j18 _ = do
 ------------------------------------------------------------------------------
 
 k13 r@Resource{..} = do
+    trace "k13"
     req <- lift request
     let reqHeaders = requestHeaders req
         ifNoneMatch = fromJust (lookup hIfNoneMatch reqHeaders)
@@ -431,12 +468,14 @@ k13 r@Resource{..} = do
         else l13 r
 
 k07 r@Resource{..} = do
+    trace "k07"
     prevExisted <- lift previouslyExisted
     if prevExisted
         then k05 r
         else l07 r
 
 k05 r@Resource{..} = do
+    trace "k05"
     moved <- lift movedPermanently
     case moved of
         (Just loc) -> do
@@ -450,6 +489,7 @@ k05 r@Resource{..} = do
 ------------------------------------------------------------------------------
 
 l17 r@Resource{..} = do
+    trace "l17"
     parsedDate <- lift $ requestHeaderDate hIfModifiedSince
     modified <- lift lastModified
     let maybeGreater = do
@@ -461,6 +501,7 @@ l17 r@Resource{..} = do
         else lift $ halt HTTP.status304
 
 l15 r@Resource{..} = do
+    trace "l15"
     parsedDate <- lift $ requestHeaderDate hIfModifiedSince
     now <- lift requestTime
     let maybeGreater = (> now) <$> parsedDate
@@ -469,6 +510,7 @@ l15 r@Resource{..} = do
         else l17 r
 
 l14 r@Resource{..} = do
+    trace "l14"
     req <- lift request
     let reqHeaders = requestHeaders req
         dateHeader = lookup hIfModifiedSince reqHeaders
@@ -478,6 +520,7 @@ l14 r@Resource{..} = do
         else m16 r
 
 l13 r@Resource{..} = do
+    trace "l13"
     req <- lift request
     let reqHeaders = requestHeaders req
     case lookup hIfModifiedSince reqHeaders of
@@ -487,12 +530,14 @@ l13 r@Resource{..} = do
             m16 r
 
 l07 r = do
+    trace "l07"
     req <- lift request
     if requestMethod req == HTTP.methodPost
         then m07 r
         else lift $ halt HTTP.status404
 
 l05 r@Resource{..} = do
+    trace "l05"
     moved <- lift movedTemporarily
     case moved of
         (Just loc) -> do
@@ -506,6 +551,7 @@ l05 r@Resource{..} = do
 ------------------------------------------------------------------------------
 
 m20 r@Resource{..} = do
+    trace "m20"
     deleteAccepted <- lift deleteResource
     if deleteAccepted
         then do
@@ -516,18 +562,21 @@ m20 r@Resource{..} = do
         else lift $ halt HTTP.status500
 
 m16 r = do
+    trace "m16"
     req <- lift request
     if requestMethod req == HTTP.methodDelete
         then m20 r
         else n16 r
 
 m07 r@Resource{..} = do
+    trace "m07"
     allowMissing <- lift allowMissingPost
     if allowMissing
         then n11 r
         else lift $ halt HTTP.status404
 
 m05 r = do
+    trace "m05"
     req <- lift request
     if requestMethod req == HTTP.methodPost
         then n05 r
@@ -538,12 +587,13 @@ m05 r = do
 ------------------------------------------------------------------------------
 
 n16 r = do
+    trace "n16"
     req <- lift request
     if requestMethod req == HTTP.methodPost
         then n11 r
         else o16 r
 
-n11 r@Resource{..} = lift processPost >>= flip processPostAction r
+n11 r@Resource{..} = trace "n11" >> lift processPost >>= flip processPostAction r
 
 create :: Monad m => [Text] -> Resource s m -> FlowStateT s m ()
 create ts r = do
@@ -566,6 +616,7 @@ processPostAction (PostProcessRedirect ts) _r = do
     lift $ halt HTTP.status303
 
 n05 r@Resource{..} = do
+    trace "n05"
     allow <- lift allowMissingPost
     if allow
         then n11 r
@@ -576,6 +627,7 @@ n05 r@Resource{..} = do
 ------------------------------------------------------------------------------
 
 o20 r = do
+    trace "o20"
     body <- lift getResponseBody
     -- ResponseBody is a little tough to make an instance of 'Eq',
     -- so we just use a pattern match
@@ -584,6 +636,7 @@ o20 r = do
         _       -> o18 r
 
 o18 Resource{..} = do
+    trace "o18"
     multiple <- lift multipleChoices
     if multiple
         then lift $ halt HTTP.status300
@@ -596,12 +649,14 @@ o18 Resource{..} = do
             lift $ halt HTTP.status200
 
 o16 r = do
+    trace "o16"
     req <- lift request
     if requestMethod req == HTTP.methodPut
         then o14 r
         else o18 r
 
 o14 r@Resource{..} = do
+    trace "o14"
     conflict <- lift isConflict
     if conflict
         then lift $ halt HTTP.status409
@@ -612,6 +667,7 @@ o14 r@Resource{..} = do
 ------------------------------------------------------------------------------
 
 p11 r = do
+    trace "p11"
     headers <- lift getResponseHeaders
     case lookup HTTP.hLocation headers of
         (Just _) ->
@@ -620,6 +676,7 @@ p11 r = do
             o20 r
 
 p03 r@Resource{..} = do
+    trace "p03"
     conflict <- lift isConflict
     if conflict
         then lift $ halt HTTP.status409

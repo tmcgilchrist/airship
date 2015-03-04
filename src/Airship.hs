@@ -26,5 +26,6 @@ resourceToWai routes resource404 s req respond = do
         pInfo = pathInfo req
         resource = route routeMapping pInfo resource404
     nowTime <- getCurrentTime
-    response <- eitherResponse nowTime req s (flow resource)
+    (response, trace) <- eitherResponse nowTime req s (flow resource)
+    print trace
     respond (toWaiResponse response)

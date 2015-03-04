@@ -32,10 +32,6 @@ module Airship.Types
 
 import Blaze.ByteString.Builder (Builder)
 import Blaze.ByteString.Builder.ByteString (fromByteString)
-
-import Data.ByteString.Char8
-import Data.Time.Clock (UTCTime)
-
 import Control.Applicative (Applicative, (<$>))
 import Control.Monad (liftM)
 import Control.Monad.Base (MonadBase)
@@ -47,8 +43,11 @@ import Control.Monad.Trans.Control (MonadBaseControl(..))
 import Control.Monad.Trans.Either (EitherT(..), runEitherT, left)
 import Control.Monad.Trans.RWS.Strict (RWST(..), runRWST)
 import Control.Monad.Writer.Class (MonadWriter)
+import Data.ByteString.Char8
+import Data.Monoid ((<>))
+import Data.Text (Text)
+import Data.Time.Clock (UTCTime)
 
-import Data.Monoid (Monoid(..), (<>))
 
 import Network.HTTP.Types (ResponseHeaders, Status)
 
@@ -87,11 +86,7 @@ data ResponseState s m = ResponseState { stateUser      :: s
                                        , stateBody      :: ResponseBody m
                                        }
 
-data Trace = Trace deriving (Show)
-
-instance Monoid Trace where
-    mempty      = Trace
-    mappend _ _ = Trace
+type Trace = [Text]
 
 newtype Webmachine s m a =
     Webmachine { getWebmachine :: EitherT (Response m) (RWST RequestReader Trace (ResponseState s m) m) a }
@@ -165,14 +160,14 @@ finishWith = Webmachine . left
 both :: Either a a -> a
 both = either id id
 
-eitherResponse :: Monad m => UTCTime -> Wai.Request -> s -> Handler s m (Response m) -> m (Response m)
+eitherResponse :: Monad m => UTCTime -> Wai.Request -> s -> Handler s m (Response m) -> m (Response m, Trace)
 eitherResponse reqDate req s resource = do
-    e <- runWebmachine reqDate req s resource
-    return $ both e
+    (e, trace) <- runWebmachine reqDate req s resource
+    return (both e, trace)
 
-runWebmachine :: Monad m => UTCTime -> Wai.Request -> s -> Handler s m a -> m (Either (Response m) a)
+runWebmachine :: Monad m => UTCTime -> Wai.Request -> s -> Handler s m a -> m (Either (Response m) a, Trace)
 runWebmachine reqDate req s w = do
     let startingState = ResponseState s [] Empty
         requestReader = RequestReader reqDate req
-    (e, _, _) <- runRWST (runEitherT (getWebmachine w)) requestReader startingState
-    return e
+    (e, _, t) <- runRWST (runEitherT (getWebmachine w)) requestReader startingState
+    return (e, t)

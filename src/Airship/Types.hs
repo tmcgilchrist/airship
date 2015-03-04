@@ -56,7 +56,6 @@ import qualified Network.Wai as Wai
 
 data RequestReader = RequestReader { _now :: UTCTime
                                    , _request :: Wai.Request
-                                   , _params :: HashMap Text Text
                                    }
 
 data ETag = Strong ByteString
@@ -86,6 +85,7 @@ data Response m = Response { _responseStatus     :: Status
 data ResponseState s m = ResponseState { stateUser      :: s
                                        , stateHeaders   :: ResponseHeaders
                                        , stateBody      :: ResponseBody m
+                                       , _params :: HashMap Text Text
                                        }
 
 type Trace = [Text]
@@ -122,7 +122,7 @@ request :: Handler m s Wai.Request
 request = _request <$> ask
 
 params :: Handler m s (HashMap Text Text)
-params = _params <$> ask
+params = _params <$> get
 
 requestTime :: Handler m s UTCTime
 requestTime = _now <$> ask
@@ -172,7 +172,7 @@ eitherResponse reqDate reqParams req s resource = do
 
 runWebmachine :: Monad m => UTCTime -> HashMap Text Text -> Wai.Request -> s -> Handler s m a -> m (Either (Response m) a, Trace)
 runWebmachine reqDate reqParams req s w = do
-    let startingState = ResponseState s [] Empty
-        requestReader = RequestReader reqDate req reqParams
+    let startingState = ResponseState s [] Empty reqParams
+        requestReader = RequestReader reqDate req
     (e, _, t) <- runRWST (runEitherT (getWebmachine w)) requestReader startingState
     return (e, t)

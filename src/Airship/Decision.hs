@@ -22,6 +22,7 @@ import           Control.Monad.Writer.Class (tell)
 
 import           Data.ByteString (ByteString)
 import           Blaze.ByteString.Builder (toByteString)
+import           Data.HashMap.Strict (HashMap)
 import           Data.Maybe (fromJust, isJust)
 import           Data.Text (Text)
 import           Data.Time.Clock (UTCTime)
@@ -61,17 +62,18 @@ hIfModifiedSince = "If-Modified-Since"
 
 data FlowState m = FlowState
     { _contentType :: Maybe (MediaType, ResponseBody m)
+    , _paramsMap   :: HashMap Text Text
     }
 
 type FlowStateT s m a = StateT (FlowState m) (Webmachine s m) a
 
 type Flow s m = Resource s m -> FlowStateT s m (Response m)
 
-initFlowState :: FlowState m
+initFlowState :: HashMap Text Text -> FlowState m
 initFlowState = FlowState Nothing
 
-flow :: Monad m => Resource s m -> Webmachine s m (Response m)
-flow r = evalStateT (b13 r) initFlowState
+flow :: Monad m => Resource s m -> HashMap Text Text -> Webmachine s m (Response m)
+flow r m = evalStateT (b13 r) (initFlowState m)
 
 trace :: Monad m => Text -> FlowStateT s m ()
 trace t = lift $ tell [t]

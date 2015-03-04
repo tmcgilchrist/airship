@@ -6,3 +6,4 @@ dist
 *.chi
 *.chs.h
 .virthualenv
+.DS_Store

@@ -5,7 +5,7 @@ module Main where
 import           Airship (resourceToWai)
 import           Airship.Resource (Resource(..), defaultResource, singletonContentType)
 import           Airship.Route (RoutingSpec, (#>), (</>), var, root)
-import           Airship.Types (ResponseBody(..), request, getState)
+import           Airship.Types (ResponseBody(..), request, getState, params)
 
 import           Blaze.ByteString.Builder.Html.Utf8 (fromHtmlEscapedText)
 
@@ -47,6 +47,8 @@ accountResource = defaultResource
         m <- liftIO (readMVar (_getState s))
         let accountName = last currentPath
             val = lookupDefault 0 accountName m
+        ps <- params
+        liftIO $ print ps
         return [("text/plain", ResponseBuilder (fromHtmlEscapedText (pack (show val) <> "\n")))]
 
     , contentTypesAccepted = return [("text/plain", do

@@ -17,8 +17,7 @@ import Airship.Resource
 import Data.Monoid
 import Data.Foldable (foldr')
 import Data.Text (Text)
-import Data.Maybe (isJust)
-import Data.HashMap.Strict (HashMap, empty, insert)
+import Data.HashMap.Strict (HashMap, insert)
 
 import Control.Applicative (Applicative)
 import Control.Monad.Writer (Writer, execWriter)
@@ -56,17 +55,17 @@ var t = Route [Var t]
 star :: Route
 star = Route [RestUnbound]
 
-route :: [(Route, a)] -> [Text] -> a -> a
-route routes pInfo resource404 = foldr' (matchRoute pInfo) resource404 routes
+route :: [(Route, a)] -> [Text] -> a -> (a, HashMap Text Text)
+route routes pInfo resource404 = foldr' (matchRoute pInfo) (resource404, mempty) routes
 
-matchRoute :: [Text] -> (Route, a) -> a -> a
-matchRoute paths (rSpec, resource) previousMatch =
-    if isJust (matchesRoute paths rSpec)
-    then resource
-    else previousMatch
+matchRoute :: [Text] -> (Route, a) -> (a, HashMap Text Text) -> (a, HashMap Text Text)
+matchRoute paths (rSpec, resource) (previousMatch, previousMap) =
+    case matchesRoute paths rSpec of
+      Nothing -> (previousMatch, previousMap)
+      Just m  -> (resource, m)
 
 matchesRoute :: [Text] -> Route -> Maybe (HashMap Text Text)
-matchesRoute paths spec = matchesRoute' paths (getRoute spec) empty where
+matchesRoute paths spec = matchesRoute' paths (getRoute spec) mempty where
     -- recursion is over, and we never bailed out to return false, so we match
     matchesRoute' []        []              acc     = Just acc
     -- there is an extra part of the path left, and we don't have more matching

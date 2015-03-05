@@ -24,6 +24,7 @@ module Airship.Types
     , modifyState
     , getResponseHeaders
     , getResponseBody
+    , params
     , putResponseBody
     , putResponseBS
     , halt
@@ -44,10 +45,10 @@ import Control.Monad.Trans.Either (EitherT(..), runEitherT, left)
 import Control.Monad.Trans.RWS.Strict (RWST(..), runRWST)
 import Control.Monad.Writer.Class (MonadWriter)
 import Data.ByteString.Char8
+import Data.HashMap.Strict (HashMap)
 import Data.Monoid ((<>))
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
-
 
 import Network.HTTP.Types (ResponseHeaders, Status)
 
@@ -84,6 +85,7 @@ data Response m = Response { _responseStatus     :: Status
 data ResponseState s m = ResponseState { stateUser      :: s
                                        , stateHeaders   :: ResponseHeaders
                                        , stateBody      :: ResponseBody m
+                                       , _params :: HashMap Text Text
                                        }
 
 type Trace = [Text]
@@ -118,6 +120,9 @@ type Handler s m a = Monad m => Webmachine s m a
 
 request :: Handler m s Wai.Request
 request = _request <$> ask
+
+params :: Handler m s (HashMap Text Text)
+params = _params <$> get
 
 requestTime :: Handler m s UTCTime
 requestTime = _now <$> ask
@@ -160,14 +165,14 @@ finishWith = Webmachine . left
 both :: Either a a -> a
 both = either id id
 
-eitherResponse :: Monad m => UTCTime -> Wai.Request -> s -> Handler s m (Response m) -> m (Response m, Trace)
-eitherResponse reqDate req s resource = do
-    (e, trace) <- runWebmachine reqDate req s resource
+eitherResponse :: Monad m => UTCTime -> HashMap Text Text -> Wai.Request -> s -> Handler s m (Response m) -> m (Response m, Trace)
+eitherResponse reqDate reqParams req s resource = do
+    (e, trace) <- runWebmachine reqDate reqParams req s resource
     return (both e, trace)
 
-runWebmachine :: Monad m => UTCTime -> Wai.Request -> s -> Handler s m a -> m (Either (Response m) a, Trace)
-runWebmachine reqDate req s w = do
-    let startingState = ResponseState s [] Empty
+runWebmachine :: Monad m => UTCTime -> HashMap Text Text -> Wai.Request -> s -> Handler s m a -> m (Either (Response m) a, Trace)
+runWebmachine reqDate reqParams req s w = do
+    let startingState = ResponseState s [] Empty reqParams
         requestReader = RequestReader reqDate req
     (e, _, t) <- runRWST (runEitherT (getWebmachine w)) requestReader startingState
     return (e, t)

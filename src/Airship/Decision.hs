@@ -60,8 +60,7 @@ hIfModifiedSince = "If-Modified-Since"
 ------------------------------------------------------------------------------
 
 data FlowState m = FlowState
-    { _contentType :: Maybe (MediaType, ResponseBody m)
-    }
+    { _contentType :: Maybe (MediaType, ResponseBody m) }
 
 type FlowStateT s m a = StateT (FlowState m) (Webmachine s m) a
 

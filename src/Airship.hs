@@ -24,8 +24,8 @@ resourceToWai :: RoutingSpec s IO () -> Resource s IO -> s -> Application
 resourceToWai routes resource404 s req respond = do
     let routeMapping = runRouter routes
         pInfo = pathInfo req
-        resource = route routeMapping pInfo resource404
+        (resource, params) = route routeMapping pInfo resource404
     nowTime <- getCurrentTime
-    (response, trace) <- eitherResponse nowTime req s (flow resource)
+    (response, trace) <- eitherResponse nowTime params req s (flow resource)
     print trace
     respond (toWaiResponse response)

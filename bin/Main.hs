@@ -16,7 +16,7 @@ import           Control.Monad.Trans (liftIO)
 import           Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HM
 import           Data.ByteString.Lazy.Char8 (unpack)
-import           Data.Maybe (fromMaybe, fromJust)
+import           Data.Maybe (fromMaybe)
 import           Data.Monoid ((<>))
 import           Data.Text(Text, pack)
 
@@ -54,8 +54,9 @@ accountResource = defaultResource
         req <- request
         s <- getState
         body <- liftIO (strictRequestBody req)
-        accountName <- fromJust <$> HM.lookup "name" <$> params
-        let val = read (unpack body)
+        p <- params
+        let accountName = p HM.! "name"
+            val = read (unpack body)
         liftIO (modifyMVar_ (_getState s) (return . HM.insert accountName val))
         return ()
     )]

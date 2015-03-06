@@ -389,9 +389,9 @@ h07 r@Resource {..} = do
     trace "h07"
     req <- lift request
     let reqHeaders = requestHeaders req
-    case fromJust (lookup hIfMatch reqHeaders) of
+    case lookup hIfMatch reqHeaders of
         -- TODO: should we be stripping whitespace here?
-        "*" ->
+        (Just "*") ->
             lift $ halt HTTP.status412
         _ ->
             i07 r
@@ -679,4 +679,4 @@ p03 r@Resource{..} = do
     conflict <- lift isConflict
     if conflict
         then lift $ halt HTTP.status409
-        else p11 r
+        else negotiateContentTypesAccepted r >> p11 r

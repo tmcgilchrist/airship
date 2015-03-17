@@ -13,7 +13,6 @@ import           Airship.Types
 -- | Returns @True@ if the request's Content-Type header is one of the
 -- provided media types. If the Content-Type header is not present,
 -- this function will return True. (TODO: does that make sense?)
--- This should really operate on @MediaType@ rather than ByteString.
 contentTypeMatches :: [MediaType] -> Handler s m Bool
 contentTypeMatches validTypes = do
   headers <- requestHeaders <$> request

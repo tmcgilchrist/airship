@@ -15,8 +15,8 @@ import           Airship.Types
 -- this function will return True. (TODO: does that make sense?)
 contentTypeMatches :: [MediaType] -> Handler s m Bool
 contentTypeMatches validTypes = do
-  headers <- requestHeaders <$> request
-  let cType = lookup HTTP.hContentType headers
-  return $ case cType of
-    Nothing -> True
-    Just t  -> isJust $ matchAccept validTypes t
+    headers <- requestHeaders <$> request
+    let cType = lookup HTTP.hContentType headers
+    return $ case cType of
+        Nothing -> True
+        Just t  -> isJust $ matchAccept validTypes t

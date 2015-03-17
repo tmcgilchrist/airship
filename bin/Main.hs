@@ -5,6 +5,7 @@
 module Main where
 
 import           Airship (resourceToWai)
+import           Airship.Helpers
 import           Airship.Resource ( Resource(..)
                                   , PostResponse(..)
                                   , defaultResource
@@ -33,7 +34,7 @@ import           Data.Monoid ((<>))
 import           Data.Text(Text, pack)
 
 import qualified Network.HTTP.Types as HTTP
-import           Network.Wai (strictRequestBody, requestHeaders)
+import           Network.Wai (strictRequestBody)
 import           Network.Wai.Handler.Warp (run)
 
 -- ***************************************************************************
@@ -67,11 +68,7 @@ accountResource = defaultResource
                               , HTTP.methodPost
                               , HTTP.methodPut
                               ]
-    , knownContentType = do
-        req <- request
-        let reqHeaders = requestHeaders req
-            cType = lookup HTTP.hContentType reqHeaders
-        return (maybe True (== "text/plain") cType)
+    , knownContentType = contentTypeMatches ["text/plain"]
 
     , contentTypesProvided = do
         s <- getState

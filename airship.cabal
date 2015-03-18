@@ -2,7 +2,7 @@ name:                   airship
 synopsis:               A Webmachine-inspired HTTP library
 description:            A Webmachine-inspired HTTP library
 version:                0.1.0.0
-license:                Apache-2.0
+license:                MIT
 license-file:           LICENSE
 author:                 Reid Draper
 maintainer:             reiddraper@gmail.com

@@ -4,20 +4,7 @@
 
 module Main where
 
-import           Airship (resourceToWai)
-import           Airship.Helpers
-import           Airship.Resource ( Resource(..)
-                                  , PostResponse(..)
-                                  , defaultResource
-                                  , singletonContentType
-                                  )
-import           Airship.Route (RoutingSpec, (#>), (</>), var, root)
-import           Airship.Types ( ResponseBody(..)
-                               , Handler
-                               , request
-                               , getState
-                               , params
-                               )
+import           Airship
 
 import           Blaze.ByteString.Builder.Html.Utf8 (fromHtmlEscapedText)
 

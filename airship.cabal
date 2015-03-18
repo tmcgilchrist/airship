@@ -38,6 +38,7 @@ library
                    , Airship.Decision
                    , Airship.Date
                    , Airship.Headers
+                   , Airship.Helpers
                    , Airship.Parsers
                    , Airship.Types
                    , Airship.Resource

@@ -4,8 +4,8 @@ description:            A Webmachine-inspired HTTP library
 version:                0.1.0.0
 license:                MIT
 license-file:           LICENSE
-author:                 Reid Draper
-maintainer:             reiddraper@gmail.com
+author:                 Reid Draper and the Helium team
+maintainer:             reid@helium.com
 category:               Web
 build-type:             Simple
 cabal-version:          >=1.10

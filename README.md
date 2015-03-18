@@ -1,6 +1,6 @@
 # Airship
 
-Airship is a Haskell library for handling and serving HTTP requests in a RESTful fashion. It is heavily inspired by [Webmachine](https://github.com/basho/webmachine) and piggybacks on the excellent [Warp](https://hackage.haskell.org/package/warp) web server. It aims to be small, fast, and flexible.
+Airship is a Haskell library for handling and serving HTTP requests in a RESTful fashion. It is heavily inspired by [Webmachine](https://github.com/basho/webmachine) and works with any [WAI](https://hackage.haskell.org/package/wai)-compatible web server such as [Warp](https://hackage.haskell.org/package/warp). It aims to be small, fast, and flexible.
 
 The API is highly experimental and subject to rapid, dizzying change. Caveat programmator.
 

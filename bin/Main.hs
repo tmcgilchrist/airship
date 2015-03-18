@@ -35,7 +35,11 @@ import           Data.Text(Text, pack)
 
 import qualified Network.HTTP.Types as HTTP
 import           Network.Wai (strictRequestBody)
-import           Network.Wai.Handler.Warp (run)
+import           Network.Wai.Handler.Warp ( runSettings
+                                          , defaultSettings
+                                          , setPort
+                                          , setHost
+                                          )
 
 -- ***************************************************************************
 -- Helpers
@@ -115,10 +119,12 @@ myRoutes = do
 main :: IO ()
 main = do
     let port = 3000
+        host = "127.0.0.1"
+        settings = setPort port (setHost host defaultSettings)
         routes = myRoutes
         resource404 = defaultResource
 
     mvar <- newMVar HM.empty
     let s = State mvar
     putStrLn "Listening on port 3000"
-    run port (resourceToWai routes resource404 s)
+    runSettings settings (resourceToWai routes resource404 s)

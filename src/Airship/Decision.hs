@@ -15,9 +15,10 @@ import           Airship.Types (Webmachine, Response(..),
 import           Airship.Resource(Resource(..), PostResponse(..))
 import           Airship.Parsers (parseEtagList)
 import           Control.Applicative ((<$>))
+import           Control.Monad (when)
 import           Control.Monad.Trans (lift)
 import           Control.Monad.Trans.State.Strict (StateT(..), evalStateT,
-                                                   modify)
+                                                   get, modify)
 import           Control.Monad.Writer.Class (tell)
 
 import           Data.ByteString (ByteString)
@@ -237,7 +238,6 @@ c04 r@Resource{..} = do
       Nothing -> lift $ halt HTTP.status406
       Just res -> do
         modify (\fs -> fs { _contentType = Just res })
-        lift $ putResponseBody $ snd res
         d04 r
 
 c03 r@Resource{..} = do
@@ -641,10 +641,20 @@ o18 Resource{..} = do
         then lift $ halt HTTP.status300
         else do
             -- TODO: set etag, expiration, etc. headers
-            provided <- lift contentTypesProvided
-            let (cType, body)  = head provided
-            lift $ putResponseBody body
-            lift $ addResponseHeader ("Content-Type", renderHeader cType)
+            req <- lift request
+            let getOrHead = [ HTTP.methodGet
+                            , HTTP.methodHead
+                            ]
+            when (requestMethod req `elem` getOrHead) $ do
+                m <- _contentType <$> get
+                (cType, body) <- case m of
+                    Nothing -> do
+                        provided <- lift contentTypesProvided
+                        return (head provided)
+                    Just (cType, body) ->
+                        return (cType, body)
+                lift $ putResponseBody body
+                lift $ addResponseHeader ("Content-Type", renderHeader cType)
             lift $ halt HTTP.status200
 
 o16 r = do

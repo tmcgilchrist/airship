@@ -12,7 +12,7 @@ module Airship.Resource
     , singletonContentType
     ) where
 
-import Airship.Types (Handler, Response(..), ResponseBody(..), finishWith)
+import Airship.Types (Handler, Webmachine, Response(..), ResponseBody(..), finishWith)
 
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
@@ -37,7 +37,7 @@ data Resource s m =
     Resource { allowMissingPost         :: Handler s m Bool
              , allowedMethods           :: Handler s m [Method]
              , contentTypesAccepted     :: Handler s m [(MediaType, Handler s m ())]
-             , contentTypesProvided     :: Handler s m [(MediaType, ResponseBody m)]
+             , contentTypesProvided     :: Handler s m [(MediaType, Webmachine s m (ResponseBody m))]
              , createPath               :: Handler s m (Maybe Text)
              , deleteCompleted          :: Handler s m Bool
              , deleteResource           :: Handler s m Bool
@@ -95,5 +95,5 @@ defaultResource = Resource { allowMissingPost       = return False
                            , validContentHeaders    = return True
                            }
 
-singletonContentType :: MediaType -> Text -> [(MediaType, ResponseBody m)]
-singletonContentType ct tex = [(ct, ResponseBuilder (fromHtmlEscapedText tex))]
+singletonContentType :: Monad m => MediaType -> Text -> [(MediaType, Webmachine s m (ResponseBody m))]
+singletonContentType ct tex = [(ct, return (ResponseBuilder (fromHtmlEscapedText tex)))]

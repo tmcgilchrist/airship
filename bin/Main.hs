@@ -62,11 +62,14 @@ accountResource = defaultResource
     , knownContentType = contentTypeMatches ["text/plain"]
 
     , contentTypesProvided = do
-        s <- getState
-        m <- liftIO (readMVar (_getState s))
-        accountNameM <- HM.lookup "name" <$> params
-        let val = fromMaybe 0 (accountNameM >>= flip HM.lookup m)
-        return [("text/plain", ResponseBuilder (fromHtmlEscapedText (pack (show val) <> "\n")))]
+        let textAction = do
+                s <- getState
+                m <- liftIO (readMVar (_getState s))
+                accountNameM <- HM.lookup "name" <$> params
+                let val = fromMaybe 0 (accountNameM >>= flip HM.lookup m)
+                return $ ResponseBuilder (fromHtmlEscapedText
+                                                (pack (show val) <> "\n"))
+        return [("text/plain", textAction)]
 
     , allowMissingPost = return False
 

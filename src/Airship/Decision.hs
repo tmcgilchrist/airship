@@ -60,14 +60,14 @@ hIfModifiedSince = "If-Modified-Since"
 -- tree
 ------------------------------------------------------------------------------
 
-data FlowState m = FlowState
-    { _contentType :: Maybe (MediaType, ResponseBody m) }
+data FlowState s m = FlowState
+    { _contentType :: Maybe (MediaType, Webmachine s m (ResponseBody m)) }
 
-type FlowStateT s m a = StateT (FlowState m) (Webmachine s m) a
+type FlowStateT s m a = StateT (FlowState s m) (Webmachine s m) a
 
 type Flow s m = Resource s m -> FlowStateT s m (Response m)
 
-initFlowState :: FlowState m
+initFlowState :: FlowState s m
 initFlowState = FlowState Nothing
 
 flow :: Monad m => Resource s m -> Webmachine s m (Response m)
@@ -653,7 +653,8 @@ o18 Resource{..} = do
                         return (head provided)
                     Just (cType, body) ->
                         return (cType, body)
-                lift $ putResponseBody body
+                b <- lift body
+                lift $ putResponseBody b
                 lift $ addResponseHeader ("Content-Type", renderHeader cType)
             lift $ halt HTTP.status200
 

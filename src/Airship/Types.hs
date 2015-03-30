@@ -12,9 +12,11 @@ module Airship.Types
     ( ETag(..)
     , Webmachine
     , Handler
+    , Request(..)
     , Response(..)
     , ResponseState(..)
     , ResponseBody(..)
+    , strictRequestBody
     , eitherResponse
     , runWebmachine
     , request
@@ -33,6 +35,8 @@ module Airship.Types
 
 import Blaze.ByteString.Builder (Builder)
 import Blaze.ByteString.Builder.ByteString (fromByteString)
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as LB
 import Control.Applicative (Applicative, (<$>))
 import Control.Monad (liftM)
 import Control.Monad.Base (MonadBase)
@@ -50,13 +54,41 @@ import Data.Monoid ((<>))
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 
-import Network.HTTP.Types (ResponseHeaders, Status)
+import Network.Socket (SockAddr)
+import Network.HTTP.Types ( ResponseHeaders
+                          , RequestHeaders
+                          , Query
+                          , Status
+                          , Method
+                          , HttpVersion )
 
 import qualified Network.Wai as Wai
 
-data RequestReader = RequestReader { _now :: UTCTime
-                                   , _request :: Wai.Request
-                                   }
+data Request m =
+    Request { requestMethod :: Method
+            , httpVersion :: HttpVersion
+            , rawPathInfo :: ByteString
+            , rawQueryString :: ByteString
+            , requestHeaders :: RequestHeaders
+            , isSecure :: Bool
+            , remoteHost :: SockAddr
+            , pathInfo :: [Text]
+            , queryString :: Query
+            , requestBody :: m ByteString
+            , requestBodyLength :: Wai.RequestBodyLength
+            , requestHeaderHost :: Maybe ByteString
+            , requestHeaderRange :: Maybe ByteString
+            }
+
+strictRequestBody :: Monad m => Request m -> m LB.ByteString
+strictRequestBody req = requestBody req >>= strictRequestBody' LB.empty
+    where strictRequestBody' acc prev
+            | BS.null prev = return acc
+            | otherwise = requestBody req >>= strictRequestBody' (acc <> LB.fromStrict prev)
+
+data RequestReader m = RequestReader { _now :: UTCTime
+                                     , _request :: Request m
+                                     }
 
 data ETag = Strong ByteString
           | Weak ByteString
@@ -91,9 +123,9 @@ data ResponseState s m = ResponseState { stateUser      :: s
 type Trace = [Text]
 
 newtype Webmachine s m a =
-    Webmachine { getWebmachine :: EitherT (Response m) (RWST RequestReader Trace (ResponseState s m) m) a }
+    Webmachine { getWebmachine :: EitherT (Response m) (RWST (RequestReader m) Trace (ResponseState s m) m) a }
         deriving (Functor, Applicative, Monad, MonadIO, MonadBase b,
-                  MonadReader RequestReader,
+                  MonadReader (RequestReader m),
                   MonadWriter Trace,
                   MonadState (ResponseState s m))
 
@@ -101,7 +133,7 @@ instance MonadTrans (Webmachine s) where
     lift = Webmachine . EitherT . (>>= return . Right) . lift
 
 newtype StMWebmachine s m a = StMWebmachine {
-      unStMWebmachine :: StM (EitherT (Response m) (RWST RequestReader Trace (ResponseState s m) m)) a
+      unStMWebmachine :: StM (EitherT (Response m) (RWST (RequestReader m) Trace (ResponseState s m) m)) a
     }
 
 instance MonadBaseControl b m => MonadBaseControl b (Webmachine s m) where
@@ -118,13 +150,13 @@ type Handler s m a = Monad m => Webmachine s m a
 -- Functions inside the Webmachine Monad -------------------------------------
 ------------------------------------------------------------------------------
 
-request :: Handler m s Wai.Request
+request :: Handler s m (Request m)
 request = _request <$> ask
 
-params :: Handler m s (HashMap Text Text)
+params :: Handler s m (HashMap Text Text)
 params = _params <$> get
 
-requestTime :: Handler m s UTCTime
+requestTime :: Handler s m UTCTime
 requestTime = _now <$> ask
 
 getState :: Handler s m s
@@ -165,12 +197,12 @@ finishWith = Webmachine . left
 both :: Either a a -> a
 both = either id id
 
-eitherResponse :: Monad m => UTCTime -> HashMap Text Text -> Wai.Request -> s -> Handler s m (Response m) -> m (Response m, Trace)
+eitherResponse :: Monad m => UTCTime -> HashMap Text Text -> Request m -> s -> Handler s m (Response m) -> m (Response m, Trace)
 eitherResponse reqDate reqParams req s resource = do
     (e, trace) <- runWebmachine reqDate reqParams req s resource
     return (both e, trace)
 
-runWebmachine :: Monad m => UTCTime -> HashMap Text Text -> Wai.Request -> s -> Handler s m a -> m (Either (Response m) a, Trace)
+runWebmachine :: Monad m => UTCTime -> HashMap Text Text -> Request m -> s -> Handler s m a -> m (Either (Response m) a, Trace)
 runWebmachine reqDate reqParams req s w = do
     let startingState = ResponseState s [] Empty reqParams
         requestReader = RequestReader reqDate req

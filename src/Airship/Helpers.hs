@@ -26,11 +26,28 @@ import           Data.Time           (getCurrentTime)
 -- this function will return True. (TODO: does that make sense?)
 contentTypeMatches :: [MediaType] -> Handler s m Bool
 contentTypeMatches validTypes = do
-    headers <- Wai.requestHeaders <$> request
+    headers <- requestHeaders <$> request
     let cType = lookup HTTP.hContentType headers
     return $ case cType of
         Nothing -> True
         Just t  -> isJust $ matchAccept validTypes t
+
+fromWaiRequest :: Wai.Request -> Request IO
+fromWaiRequest req = Request
+    { requestMethod = Wai.requestMethod req
+    , httpVersion = Wai.httpVersion req
+    , rawPathInfo = Wai.rawPathInfo req
+    , rawQueryString = Wai.rawQueryString req
+    , requestHeaders = Wai.requestHeaders req
+    , isSecure = Wai.isSecure req
+    , remoteHost = Wai.remoteHost req
+    , pathInfo = Wai.pathInfo req
+    , queryString = Wai.queryString req
+    , requestBody = Wai.requestBody req
+    , requestBodyLength = Wai.requestBodyLength req
+    , requestHeaderHost = Wai.requestHeaderHost req
+    , requestHeaderRange = Wai.requestHeaderRange req
+    }
 
 toWaiResponse :: Response IO -> ByteString -> Wai.Response
 toWaiResponse Response{..} trace =
@@ -46,9 +63,10 @@ resourceToWai :: RoutingSpec s IO () -> Resource s IO -> s -> Wai.Application
 resourceToWai routes resource404 s req respond = do
     let routeMapping = runRouter routes
         pInfo = Wai.pathInfo req
+        airshipReq = fromWaiRequest req
         (resource, params') = route routeMapping pInfo resource404
     nowTime <- getCurrentTime
-    (response, trace) <- eitherResponse nowTime params' req s (flow resource)
+    (response, trace) <- eitherResponse nowTime params' airshipReq s (flow resource)
     let traceHeaderValue = traceHeader trace
     respond (toWaiResponse response traceHeaderValue)
 

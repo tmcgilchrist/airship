@@ -8,10 +8,19 @@ module Airship.Decision
 
 import           Airship.Date (parseRfc1123Date)
 import           Airship.Headers (addResponseHeader)
-import           Airship.Types (Webmachine, Response(..),
-                                ResponseBody(..), halt, request, requestTime,
-                                getResponseBody, getResponseHeaders,
-                                putResponseBody)
+import           Airship.Types ( Response(..)
+                               , ResponseBody(..)
+                               , Webmachine
+                               , getResponseBody
+                               , getResponseHeaders
+                               , halt
+                               , pathInfo
+                               , putResponseBody
+                               , request
+                               , requestHeaders
+                               , requestMethod
+                               , requestTime )
+
 import           Airship.Resource(Resource(..), PostResponse(..))
 import           Airship.Parsers (parseEtagList)
 import           Control.Applicative ((<$>))
@@ -29,7 +38,6 @@ import           Data.Time.Clock (UTCTime)
 
 import           Network.HTTP.Media
 import qualified Network.HTTP.Types as HTTP
-import           Network.Wai (requestMethod, requestHeaders, pathInfo)
 
 ------------------------------------------------------------------------------
 -- HTTP Headers

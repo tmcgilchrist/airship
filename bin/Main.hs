@@ -21,7 +21,6 @@ import           Data.Monoid ((<>))
 import           Data.Text(Text, pack)
 
 import qualified Network.HTTP.Types as HTTP
-import           Network.Wai (strictRequestBody)
 import           Network.Wai.Handler.Warp ( runSettings
                                           , defaultSettings
                                           , setPort

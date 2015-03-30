@@ -63,3 +63,19 @@ library
                       , transformers-base == 0.4.3.*
                       , unordered-containers
                       , wai == 3.0.*
+
+test-suite unit
+  default-language: Haskell2010
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test/unit
+  main-is: test.hs
+  build-depends: base             >= 4.4     && < 5
+               , airship
+               , text             == 1.2.*
+               , bytestring       >= 0.9.1   && < 0.11
+               , tasty            == 0.10.*
+               , tasty-quickcheck == 0.8.3.*
+               , tasty-hunit        >= 0.9.1 && < 0.10
+               , transformers == 0.4.2.*
+               , wai == 3.0.*
+  ghc-options: -Wall -Werror -threaded -O1 -fno-warn-orphans

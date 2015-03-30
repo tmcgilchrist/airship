@@ -16,6 +16,7 @@ module Airship.Types
     , Response(..)
     , ResponseState(..)
     , ResponseBody(..)
+    , defaultRequest
     , strictRequestBody
     , eitherResponse
     , runWebmachine
@@ -54,7 +55,8 @@ import Data.Monoid ((<>))
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 
-import Network.Socket (SockAddr)
+import Network.Socket (SockAddr(..))
+import qualified Network.HTTP.Types as HTTP
 import Network.HTTP.Types ( ResponseHeaders
                           , RequestHeaders
                           , Query
@@ -79,6 +81,23 @@ data Request m =
             , requestHeaderHost :: Maybe ByteString
             , requestHeaderRange :: Maybe ByteString
             }
+
+defaultRequest :: Monad m => Request m
+defaultRequest = Request
+    { requestMethod = HTTP.methodGet
+    , httpVersion = HTTP.http10
+    , rawPathInfo = BS.empty
+    , rawQueryString = BS.empty
+    , requestHeaders = []
+    , isSecure = False
+    , remoteHost = SockAddrInet 0 0
+    , pathInfo = []
+    , queryString = []
+    , requestBody = return BS.empty
+    , requestBodyLength = Wai.KnownLength 0
+    , requestHeaderHost = Nothing
+    , requestHeaderRange = Nothing
+    }
 
 strictRequestBody :: Monad m => Request m -> m LB.ByteString
 strictRequestBody req = requestBody req >>= strictRequestBody' LB.empty

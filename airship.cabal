@@ -79,3 +79,17 @@ test-suite unit
                , transformers == 0.4.2.*
                , wai == 3.0.*
   ghc-options: -Wall -Werror -threaded -O1 -fno-warn-orphans
+
+benchmark request
+  default-language: Haskell2010
+  type: exitcode-stdio-1.0
+  hs-source-dirs: benchmark
+  main-is: benchmark.hs
+  ghc-options: -Wall -Werror -O1
+  build-depends: base             >= 4.4     && < 5
+               , airship
+               , blaze-builder == 0.3.*
+               , criterion        == 1.1.*
+               , time
+               , text
+              , transformers == 0.4.2.*

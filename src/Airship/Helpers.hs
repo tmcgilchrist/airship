@@ -32,6 +32,7 @@ contentTypeMatches validTypes = do
         Nothing -> True
         Just t  -> isJust $ matchAccept validTypes t
 
+-- | Construct an Airship 'Request' from a WAI request.
 fromWaiRequest :: Wai.Request -> Request IO
 fromWaiRequest req = Request
     { requestMethod = Wai.requestMethod req
@@ -59,6 +60,7 @@ toWaiResponse Response{..} trace =
                                                   [("Airship-Quip",
                                                     "never breaks eye contact")]
 
+-- | Given a 'RoutingSpec', a 404 resource, and a user state @s@, construct a WAI 'Application'.
 resourceToWai :: RoutingSpec s IO () -> Resource s IO -> s -> Wai.Application
 resourceToWai routes resource404 s req respond = do
     let routeMapping = runRouter routes

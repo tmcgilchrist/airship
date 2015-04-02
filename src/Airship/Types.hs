@@ -38,7 +38,7 @@ import Blaze.ByteString.Builder (Builder)
 import Blaze.ByteString.Builder.ByteString (fromByteString)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LB
-import Control.Applicative (Applicative, (<$>))
+import Control.Applicative
 import Control.Monad (liftM)
 import Control.Monad.Base (MonadBase)
 import Control.Monad.IO.Class (MonadIO)
@@ -66,20 +66,21 @@ import Network.HTTP.Types ( ResponseHeaders
 
 import qualified Network.Wai as Wai
 
+-- | Very similar to WAI's @Request@ type, except generalized to an arbitrary monad @m@.
 data Request m =
-    Request { requestMethod :: Method
-            , httpVersion :: HttpVersion
-            , rawPathInfo :: ByteString
-            , rawQueryString :: ByteString
-            , requestHeaders :: RequestHeaders
-            , isSecure :: Bool
-            , remoteHost :: SockAddr
-            , pathInfo :: [Text]
-            , queryString :: Query
-            , requestBody :: m ByteString
-            , requestBodyLength :: Wai.RequestBodyLength
-            , requestHeaderHost :: Maybe ByteString
-            , requestHeaderRange :: Maybe ByteString
+    Request { requestMethod :: Method -- ^ The request method -- @GET@, @POST@, @DELETE@, et cetera.
+            , httpVersion :: HttpVersion -- ^ The HTTP version (usually 1.1; hopefully someday 2.0).
+            , rawPathInfo :: ByteString -- ^ The unparsed path information yielded from the WAI server. You probably want 'pathInfo'.
+            , rawQueryString :: ByteString -- ^ The query string, if any, yielded from the WAI server. You probably want 'queryString'.
+            , requestHeaders :: RequestHeaders -- ^ An association list of (headername, value) pairs. See "Network.HTTP.Types.Header" for the possible values.
+            , isSecure :: Bool -- ^ Was this request made over SSL/TLS?
+            , remoteHost :: SockAddr -- ^ The address information of the client.
+            , pathInfo :: [Text] -- ^ The URL, stripped of hostname and port, split on forward-slashes
+            , queryString :: Query -- ^ Parsed query string information.
+            , requestBody :: m ByteString -- ^ A monadic action that extracts a (possibly-empty) chunk of the request body.
+            , requestBodyLength :: Wai.RequestBodyLength -- ^ Either @ChunkedBody@ or a @KnownLength 'Word64'@.
+            , requestHeaderHost :: Maybe ByteString -- ^ Contains the Host header.
+            , requestHeaderRange :: Maybe ByteString -- ^ Contains the Range header.
             }
 
 defaultRequest :: Monad m => Request m
@@ -99,6 +100,8 @@ defaultRequest = Request
     , requestHeaderRange = Nothing
     }
 
+-- | Extracts the entirety of a request body from a given 'Request', taking into account chunked requests.
+-- Despite the name, this function actually returns a lazy 'ByteString'.
 strictRequestBody :: Monad m => Request m -> m LB.ByteString
 strictRequestBody req = requestBody req >>= strictRequestBody' LB.empty
     where strictRequestBody' acc prev
@@ -164,52 +167,65 @@ instance MonadBaseControl b m => MonadBaseControl b (Webmachine s m) where
                      $ g' $ getWebmachine m
   restoreM = Webmachine . restoreM . unStMWebmachine
 
+-- | A convenience synonym that writes the @Monad@ type constraint for you.
 type Handler s m a = Monad m => Webmachine s m a
 
 -- Functions inside the Webmachine Monad -------------------------------------
 ------------------------------------------------------------------------------
 
+-- | Returns the 'Request' that this 'Handler' is currently processing.
 request :: Handler s m (Request m)
 request = _request <$> ask
 
+-- | Returns the bound routing parameters extracted from the routing system (see "Airship.Route").
 params :: Handler s m (HashMap Text Text)
 params = _params <$> get
 
+-- | Returns the time at which this request began processing.
 requestTime :: Handler s m UTCTime
 requestTime = _now <$> ask
 
+-- | Returns the user state (of type @s@) in the provided @'Handler' s m@.
 getState :: Handler s m s
 getState = stateUser <$> get
 
+-- | Sets the user state.
 putState :: s -> Handler s m ()
 putState s = modify updateState
     where updateState rs = rs {stateUser = s}
 
+-- | Applies the provided function to the user state.
 modifyState :: (s -> s) -> Handler s m ()
 modifyState f = modify modifyState'
     where modifyState' rs@ResponseState{stateUser=uState} =
                                         rs {stateUser = f uState}
 
+-- | Returns the 'ResponseHeaders' stored in the current 'Handler'.
 getResponseHeaders :: Handler s m ResponseHeaders
 getResponseHeaders = stateHeaders <$> get
 
+-- | Returns the current 'ResponseBody' that this 'Handler' is storing.
 getResponseBody :: Handler s m (ResponseBody m)
 getResponseBody = stateBody <$> get
 
+-- | Given a new 'ResponseBody', replaces the stored body with the new one.
 putResponseBody :: ResponseBody m -> Handler s m ()
 putResponseBody b = modify updateState
     where updateState rs = rs {stateBody = b}
 
+-- | Stores the provided 'ByteString' as the responseBody. This is a shortcut for
+-- creating a response body with a 'ResponseBuilder' and a bytestring 'Builder'.
 putResponseBS :: ByteString -> Handler s m ()
 putResponseBS bs = putResponseBody $ ResponseBuilder $ fromByteString bs
 
+-- | Immediately halts processing with the provided 'Status' code.
+-- The contents of the 'Handler''s response body will be streamed back to the client.
+-- This is a shortcut for constructing a 'Response' with 'getResponseHeaders' and 'getResponseBody'
+-- and passing that response to 'finishWith'.
 halt :: Status -> Handler m s a
-halt status = do
-    respHeaders <- getResponseHeaders
-    body <- getResponseBody
-    let response = Response status respHeaders body
-    finishWith response
+halt status = finishWith =<< Response <$> pure status <*> getResponseHeaders <*> getResponseBody
 
+-- | Immediately halts processing and writes the provided 'Response' back to the client.
 finishWith :: Response m -> Handler s m a
 finishWith = Webmachine . left
 

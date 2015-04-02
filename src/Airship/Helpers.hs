@@ -57,7 +57,7 @@ toWaiResponse Response{..} trace =
                 headers                         = _responseHeaders ++
                                                   [("Airship-Trace", trace)] ++
                                                   [("Airship-Quip",
-                                                    "never breaks eye contact")]
+                                                    "https://twitter.com/kuenishi/status/461881119281930241 blame me if inappropriate.")]
 
 resourceToWai :: RoutingSpec s IO () -> Resource s IO -> s -> Wai.Application
 resourceToWai routes resource404 s req respond = do

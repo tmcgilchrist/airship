@@ -22,9 +22,9 @@ import           Airship.Route
 import           Airship.Types
 
 
--- | Returns @True@ if the request's Content-Type header is one of the
--- provided media types. If the Content-Type header is not present,
--- this function will return True. (TODO: does that make sense?)
+-- | Returns @True@ if the request's @Content-Type@ header is one of the
+-- provided media types. If the @Content-Type@ header is not present,
+-- this function will return True.
 contentTypeMatches :: [MediaType] -> Handler s m Bool
 contentTypeMatches validTypes = do
     headers <- requestHeaders <$> request
@@ -33,6 +33,7 @@ contentTypeMatches validTypes = do
         Nothing -> True
         Just t  -> isJust $ matchAccept validTypes t
 
+-- | Construct an Airship 'Request' from a WAI request.
 fromWaiRequest :: Wai.Request -> Request IO
 fromWaiRequest req = Request
     { requestMethod = Wai.requestMethod req
@@ -59,6 +60,7 @@ toWaiResponse Response{..} trace quip =
                                                   [("Airship-Trace", trace)] ++
                                                   [("Airship-Quip", quip)]
 
+-- | Given a 'RoutingSpec', a 404 resource, and a user state @s@, construct a WAI 'Application'.
 resourceToWai :: RoutingSpec s IO () -> Resource s IO -> s -> Wai.Application
 resourceToWai routes resource404 s req respond = do
     let routeMapping = runRouter routes

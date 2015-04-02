@@ -10,15 +10,16 @@ import           Data.Maybe
 import           Data.Monoid
 import           Data.Text           (Text, intercalate)
 import           Data.Text.Encoding
+import           Data.Time           (getCurrentTime)
 import           Network.HTTP.Media
 import qualified Network.HTTP.Types  as HTTP
 import qualified Network.Wai         as Wai
+import           System.Random
 
 import           Airship.Decision
 import           Airship.Resource
 import           Airship.Route
 import           Airship.Types
-import           Data.Time           (getCurrentTime)
 
 
 -- | Returns @True@ if the request's Content-Type header is one of the
@@ -49,15 +50,14 @@ fromWaiRequest req = Request
     , requestHeaderRange = Wai.requestHeaderRange req
     }
 
-toWaiResponse :: Response IO -> ByteString -> Wai.Response
-toWaiResponse Response{..} trace =
+toWaiResponse :: Response IO -> ByteString -> ByteString -> Wai.Response
+toWaiResponse Response{..} trace quip =
     Wai.responseBuilder _responseStatus headers (fromBody _responseBody)
         where   fromBody (ResponseBuilder b)    = b
                 fromBody _                      = mempty
                 headers                         = _responseHeaders ++
                                                   [("Airship-Trace", trace)] ++
-                                                  [("Airship-Quip",
-                                                    "never breaks eye contact")]
+                                                  [("Airship-Quip", quip)]
 
 resourceToWai :: RoutingSpec s IO () -> Resource s IO -> s -> Wai.Application
 resourceToWai routes resource404 s req respond = do
@@ -66,9 +66,21 @@ resourceToWai routes resource404 s req respond = do
         airshipReq = fromWaiRequest req
         (resource, params') = route routeMapping pInfo resource404
     nowTime <- getCurrentTime
+    quip <- getQuip
     (response, trace) <- eitherResponse nowTime params' airshipReq s (flow resource)
     let traceHeaderValue = traceHeader trace
-    respond (toWaiResponse response traceHeaderValue)
+    respond (toWaiResponse response quip traceHeaderValue)
+
+getQuip :: IO ByteString
+getQuip = do
+  idx <- randomRIO (0, length quips - 1)
+  return $ quips !! idx
+  where quips = [ "never breaks eye contact"
+                , "blame me if inappropriate"
+                , "firm pat on the back"
+                , "sharkfed"
+                , "$300,000 worth of cows"
+                ]
 
 traceHeader :: [Text] -> ByteString
 traceHeader = encodeUtf8 . intercalate ","

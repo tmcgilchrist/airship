@@ -46,7 +46,6 @@ library
                    , Airship.Internal.Decision
                    , Airship.Internal.Helpers
                    , Airship.Internal.Parsers
-                   , Airship.Internal.Types
 
   build-depends:        attoparsec
                       , base >=4.7 && <4.8

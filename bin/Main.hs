@@ -47,8 +47,7 @@ routingParam t = do
 newtype State = State { _getState :: MVar (HashMap Text Integer) }
 
 resourceWithBody :: Text -> Resource State IO
-resourceWithBody t = defaultResource { contentTypesProvided = return [("text/plain", response)] }
-    where response = return (ResponseBuilder (fromHtmlEscapedText t))
+resourceWithBody t = defaultResource { contentTypesProvided = return [("text/plain", return (escapedResponse t))] }
 
 accountResource :: Resource State IO
 accountResource = defaultResource

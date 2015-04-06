@@ -18,7 +18,7 @@ import           System.Random
 
 import           Airship.Internal.Decision
 import           Airship.Resource
-import           Airship.Internal.Types
+import           Airship.Types
 import           Airship.Internal.Route
 
 

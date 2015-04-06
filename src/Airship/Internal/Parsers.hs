@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Airship.Parsers
+module Airship.Internal.Parsers
     ( parseEtag
     , parseEtagList
     ) where
@@ -13,7 +13,7 @@ import Data.Attoparsec.ByteString.Char8 (Parser, parseOnly, sepBy', char,
                                          takeWhile1, inClass, endOfInput)
 import Data.ByteString (ByteString)
 
-import Airship.Types (ETag(..))
+import Airship.Internal.Types (ETag(..))
 
 comma :: Parser Char
 comma = char ','

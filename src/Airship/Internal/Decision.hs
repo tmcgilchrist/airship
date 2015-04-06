@@ -2,11 +2,11 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Airship.Decision
+module Airship.Internal.Decision
     ( flow
     ) where
 
-import           Airship.Date (parseRfc1123Date)
+import           Airship.Internal.Date (parseRfc1123Date)
 import           Airship.Headers (addResponseHeader)
 import           Airship.Types ( Response(..)
                                , ResponseBody(..)
@@ -22,7 +22,7 @@ import           Airship.Types ( Response(..)
                                , requestTime )
 
 import           Airship.Resource(Resource(..), PostResponse(..))
-import           Airship.Parsers (parseEtagList)
+import           Airship.Internal.Parsers (parseEtagList)
 import           Control.Applicative ((<$>))
 import           Control.Monad (when)
 import           Control.Monad.Trans (lift)

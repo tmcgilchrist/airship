@@ -82,6 +82,11 @@ getQuip = do
                 , "firm pat on the back"
                 , "sharkfed"
                 , "$300,000 worth of cows"
+                , "RB_GC_GUARD"
+                , "evacuation not done in time"
+                , "javascript doesn't have integers"
+                , "WARNING: ulimit -n is 1024"
+                , "SigFox RFC1149 compliant"
                 ]
 
 traceHeader :: [Text] -> ByteString

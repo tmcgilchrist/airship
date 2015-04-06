@@ -9,7 +9,6 @@ module Airship.Resource
     , PostResponse(..)
     , serverError
     , defaultResource
-    , singletonContentType
     ) where
 
 import Airship.Types (Handler, Webmachine, Response(..), ResponseBody(..), finishWith)
@@ -17,7 +16,6 @@ import Airship.Types (Handler, Webmachine, Response(..), ResponseBody(..), finis
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import Data.ByteString (ByteString)
-import Blaze.ByteString.Builder.Html.Utf8 (fromHtmlEscapedText)
 
 import Network.HTTP.Types
 import Network.HTTP.Media (MediaType)
@@ -137,6 +135,3 @@ defaultResource = Resource { allowMissingPost       = return False
                            , uriTooLong             = return False
                            , validContentHeaders    = return True
                            }
-
-singletonContentType :: Monad m => MediaType -> Text -> [(MediaType, Webmachine s m (ResponseBody m))]
-singletonContentType ct tex = [(ct, return (ResponseBuilder (fromHtmlEscapedText tex)))]

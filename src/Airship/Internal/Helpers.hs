@@ -71,7 +71,7 @@ resourceToWai routes resource404 s req respond = do
     quip <- getQuip
     (response, trace) <- eitherResponse nowTime params' airshipReq s (flow resource)
     let traceHeaderValue = traceHeader trace
-    respond (toWaiResponse response quip traceHeaderValue)
+    respond (toWaiResponse response traceHeaderValue quip)
 
 getQuip :: IO ByteString
 getQuip = do

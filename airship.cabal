@@ -35,14 +35,17 @@ library
   hs-source-dirs: src
   ghc-options:  -Wall
   exposed-modules:   Airship
-                   , Airship.Decision
-                   , Airship.Date
                    , Airship.Headers
                    , Airship.Helpers
-                   , Airship.Parsers
                    , Airship.Types
                    , Airship.Resource
                    , Airship.Route
+
+  other-modules:     Airship.Internal.Route
+                   , Airship.Internal.Date
+                   , Airship.Internal.Decision
+                   , Airship.Internal.Helpers
+                   , Airship.Internal.Parsers
 
   build-depends:        attoparsec
                       , base >=4.7 && <4.8

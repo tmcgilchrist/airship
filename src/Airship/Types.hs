@@ -19,6 +19,7 @@ module Airship.Types
     , defaultRequest
     , strictRequestBody
     , eitherResponse
+    , escapedResponse
     , runWebmachine
     , request
     , requestTime
@@ -36,6 +37,7 @@ module Airship.Types
 
 import Blaze.ByteString.Builder (Builder)
 import Blaze.ByteString.Builder.ByteString (fromByteString)
+import Blaze.ByteString.Builder.Html.Utf8 (fromHtmlEscapedText)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LB
 import Control.Applicative
@@ -130,6 +132,10 @@ data ResponseBody m
     | ResponseStream (StreamingBody m)
     | Empty
     -- ResponseRaw ... (not implemented yet, but useful for websocket upgrades)
+
+-- | Helper function for building a `ResponseBuilder` out of HTML-escaped text.
+escapedResponse :: Text -> ResponseBody m
+escapedResponse = ResponseBuilder . fromHtmlEscapedText
 
 data Response m = Response { _responseStatus     :: Status
                            , _responseHeaders    :: ResponseHeaders

@@ -47,9 +47,7 @@ routingParam t = do
 newtype State = State { _getState :: MVar (HashMap Text Integer) }
 
 resourceWithBody :: Text -> Resource State IO
-resourceWithBody t = defaultResource{ contentTypesProvided = return $
-                                        singletonContentType "text/plain" t
-                                    }
+resourceWithBody t = defaultResource { contentTypesProvided = return [("text/plain", return (escapedResponse t))] }
 
 accountResource :: Resource State IO
 accountResource = defaultResource

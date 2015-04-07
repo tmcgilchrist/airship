@@ -1,4 +1,4 @@
-module Airship.Date
+module Airship.Internal.Date
     ( parseRfc1123Date ) where
 
 import           Control.Applicative ((<$>))

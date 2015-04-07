@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Airship.Parsers
+module Airship.Internal.Parsers
     ( parseEtag
     , parseEtagList
     ) where

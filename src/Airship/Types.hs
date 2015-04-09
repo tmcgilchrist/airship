@@ -17,7 +17,7 @@ module Airship.Types
     , ResponseState(..)
     , ResponseBody(..)
     , defaultRequest
-    , strictRequestBody
+    , entireRequestBody
     , eitherResponse
     , escapedResponse
     , runWebmachine
@@ -102,10 +102,10 @@ defaultRequest = Request
     , requestHeaderRange = Nothing
     }
 
--- | Extracts the entirety of a request body from a given 'Request', taking into account chunked requests.
--- Despite the name, this function actually returns a lazy 'ByteString'.
-strictRequestBody :: Monad m => Request m -> m LB.ByteString
-strictRequestBody req = requestBody req >>= strictRequestBody' LB.empty
+-- | Reads the entirety of the request body in a single string.
+-- This turns the chunks obtained from repeated invocations of 'requestBody' into a lazy 'ByteString'.
+entireRequestBody :: Monad m => Request m -> m LB.ByteString
+entireRequestBody req = requestBody req >>= strictRequestBody' LB.empty
     where strictRequestBody' acc prev
             | BS.null prev = return acc
             | otherwise = requestBody req >>= strictRequestBody' (acc <> LB.fromStrict prev)

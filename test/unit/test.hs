@@ -40,10 +40,10 @@ nextBody = do
             return h
 
 bodyTest :: TestTree
-bodyTest = testCase "strictRequestBody returns the body in the correct order" bodyTest'
+bodyTest = testCase "entireRequestBody returns the body in the correct order" bodyTest'
     where bodyTest' = evalState state bodyChunks @?= "onetwothreefourfive"
           state :: RequestState LB.ByteString
-          state = strictRequestBody req
+          state = entireRequestBody req
           req = defRequest { requestBody = nextBody }
           -- for some reason this type signature seems to be necessary
           defRequest :: Request RequestState

@@ -1,4 +1,5 @@
 {-# OPTIONS_HADDOCK hide #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -11,7 +12,9 @@ import Data.Foldable (foldr')
 import Data.Text (Text)
 import Data.HashMap.Strict (HashMap, insert)
 
-import Control.Applicative (Applicative)
+#if __GLASGOW_HASKELL__ < 710
+import           Control.Applicative
+#endif
 import Control.Monad.Writer (Writer, execWriter)
 import Control.Monad.Writer.Class (MonadWriter)
 

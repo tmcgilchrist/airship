@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -41,7 +42,9 @@ import Blaze.ByteString.Builder.ByteString (fromByteString)
 import Blaze.ByteString.Builder.Html.Utf8 (fromHtmlEscapedText)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LB
-import Control.Applicative
+#if __GLASGOW_HASKELL__ < 710
+import           Control.Applicative
+#endif
 import Control.Monad (liftM)
 import Control.Monad.Base (MonadBase)
 import Control.Monad.IO.Class (MonadIO)

@@ -1,7 +1,11 @@
+{-# LANGUAGE CPP #-}
 module Airship.Internal.Date
     ( parseRfc1123Date ) where
 
+#if __GLASGOW_HASKELL__ < 710
 import           Control.Applicative ((<$>))
+#endif
+
 import           Data.ByteString (ByteString)
 import           Data.Time.Calendar (fromGregorian)
 import           Data.Time.Clock (UTCTime(..), secondsToDiffTime)

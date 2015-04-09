@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Airship.Internal.Parsers
@@ -7,7 +8,11 @@ module Airship.Internal.Parsers
 
 import Prelude hiding (takeWhile)
 
+#if __GLASGOW_HASKELL__ < 710
 import Control.Applicative ((<$>), (<|>), (*>), (<*))
+#else
+import Control.Applicative ((<|>))
+#endif
 import Data.Attoparsec.ByteString.Char8 (Parser, parseOnly, sepBy', char,
                                          string, takeWhile,
                                          takeWhile1, inClass, endOfInput)

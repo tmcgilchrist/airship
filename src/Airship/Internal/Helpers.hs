@@ -1,13 +1,18 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE RecordWildCards   #-}
 
 module Airship.Internal.Helpers where
 
+#if __GLASGOW_HASKELL__ < 710
 import           Control.Applicative
+#endif
 import           Data.ByteString     (ByteString)
 import           Data.Maybe
+#if __GLASGOW_HASKELL__ < 710
 import           Data.Monoid
+#endif
 import           Data.Text           (Text, intercalate)
 import           Data.Text.Encoding
 import           Data.Time           (getCurrentTime)

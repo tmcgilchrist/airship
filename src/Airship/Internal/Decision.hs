@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE ImpredicativeTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -23,7 +25,9 @@ import           Airship.Types ( Response(..)
 
 import           Airship.Resource(Resource(..), PostResponse(..))
 import           Airship.Internal.Parsers (parseEtagList)
+#if __GLASGOW_HASKELL__ < 710
 import           Control.Applicative ((<$>))
+#endif
 import           Control.Monad (when)
 import           Control.Monad.Trans (lift)
 import           Control.Monad.Trans.State.Strict (StateT(..), evalStateT,

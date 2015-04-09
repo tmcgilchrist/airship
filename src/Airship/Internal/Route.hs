@@ -13,7 +13,7 @@ import Data.HashMap.Strict (HashMap, insert)
 
 import Control.Applicative (Applicative)
 import Control.Monad.Writer (Writer, execWriter)
-import Control.Monad.Writer.Class (MonadWriter, tell)
+import Control.Monad.Writer.Class (MonadWriter)
 
 import Data.String (IsString, fromString)
 
@@ -31,11 +31,6 @@ instance IsString Route where
 
 runRouter :: RoutingSpec s m a -> [(Route, Resource s m)]
 runRouter routes = execWriter (getRouter routes)
-
--- | Used in 'RoutingSpec' declarations to indicate that a particular 'Route' maps
--- to a given 'Resource'.
-(#>) :: Monad m => Route -> Resource s m -> RoutingSpec s m ()
-p #> r = tell [(p, r)]
 
 -- | @a '</>' b@ separates the path components @a@ and @b@ with a slash.
 -- This is actually just a synonym for 'mappend'.

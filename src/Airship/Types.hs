@@ -33,6 +33,7 @@ module Airship.Types
     , putResponseBS
     , halt
     , finishWith
+    , (#>)
     ) where
 
 import Blaze.ByteString.Builder (Builder)
@@ -50,7 +51,7 @@ import Control.Monad.Trans.Class (MonadTrans(..))
 import Control.Monad.Trans.Control (MonadBaseControl(..))
 import Control.Monad.Trans.Either (EitherT(..), runEitherT, left)
 import Control.Monad.Trans.RWS.Strict (RWST(..), runRWST)
-import Control.Monad.Writer.Class (MonadWriter)
+import Control.Monad.Writer.Class (MonadWriter, tell)
 import Data.ByteString.Char8
 import Data.HashMap.Strict (HashMap)
 import Data.Monoid ((<>))
@@ -234,6 +235,28 @@ halt status = finishWith =<< Response <$> pure status <*> getResponseHeaders <*>
 -- | Immediately halts processing and writes the provided 'Response' back to the client.
 finishWith :: Response m -> Handler s m a
 finishWith = Webmachine . left
+
+-- | The @#>@ operator provides syntactic sugar for the construction of association lists.
+-- For example, the following assoc list:
+--
+-- @
+--     [("run", "jewels"), ("blue", "suede"), ("zion", "wolf")]
+-- @
+--
+-- can be represented as such:
+--
+-- @
+--     execWriter $ do
+--       "run" #> "jewels"
+--       "blue" #> "suede"
+--       "zion" #> "wolf"
+-- @
+--
+-- It used in 'RoutingSpec' declarations to indicate that a particular 'Route' maps
+-- to a given 'Resource', but can be used in many other places where association lists
+-- are expected, such as 'contentTypesProvided'.
+(#>) :: MonadWriter [(k, v)] m => k -> v -> m ()
+k #> v = tell [(k, v)]
 
 both :: Either a a -> a
 both = either id id

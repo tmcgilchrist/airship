@@ -34,7 +34,7 @@ import           Network.Wai.Handler.Warp ( runSettings
 getBody :: Handler s IO LB.ByteString
 getBody = do
     req <- request
-    liftIO (strictRequestBody req)
+    liftIO (entireRequestBody req)
 
 readBody :: Handler s IO Integer
 readBody = read . unpack <$> getBody

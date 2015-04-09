@@ -8,4 +8,5 @@ module Airship.Route
     , (#>)
     ) where
 
+import           Airship.Types
 import           Airship.Internal.Route

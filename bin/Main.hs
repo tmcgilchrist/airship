@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
@@ -8,7 +9,9 @@ import           Airship
 
 import           Blaze.ByteString.Builder.Html.Utf8 (fromHtmlEscapedText)
 
+#if __GLASGOW_HASKELL__ < 710
 import           Control.Applicative ((<$>))
+#endif
 import           Control.Concurrent.MVar
 import           Control.Monad.Trans (liftIO)
 

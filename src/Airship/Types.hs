@@ -42,7 +42,7 @@ import Blaze.ByteString.Builder.Html.Utf8 (fromHtmlEscapedText)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LB
 #if __GLASGOW_HASKELL__ < 710
-import           Control.Applicative ((<$>))
+import           Control.Applicative
 #endif
 import Control.Monad (liftM)
 import Control.Monad.Base (MonadBase)

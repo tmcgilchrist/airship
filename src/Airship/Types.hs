@@ -246,7 +246,7 @@ finishWith = Webmachine . left
 -- can be represented as such:
 --
 -- @
---     do
+--     execWriter $ do
 --       "run" #> "jewels"
 --       "blue" #> "suede"
 --       "zion" #> "wolf"

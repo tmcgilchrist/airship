@@ -242,9 +242,14 @@ c04 r@Resource{..} = do
     let reqHeaders = requestHeaders req
         result = do
             acceptStr <- lookup HTTP.hAccept reqHeaders
-            acceptTyp <- parseAccept acceptStr
-            resource <- mapAcceptMedia provided acceptStr
+            (acceptTyp, resource) <- mapAcceptMedia provided' acceptStr
             Just (acceptTyp, resource)
+            where
+                -- this is so that in addition to getting back the resource
+                -- that we match, we also return the content-type provided
+                -- by that resource.
+                provided' = map dupContentType provided
+                dupContentType (a, b) = (a, (a, b))
 
     case result of
       Nothing -> lift $ halt HTTP.status406

@@ -11,7 +11,7 @@ module Airship.Resource
     , defaultResource
     ) where
 
-import Airship.Types (Handler, Webmachine, Response(..), ResponseBody(..), finishWith)
+import Airship.Types
 
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
@@ -56,6 +56,9 @@ data Resource s m =
                -- | Checks if the given request is allowed to access this resource.
                -- Returns @403 Forbidden@ if true. Default: false.
              , forbidden                :: Handler s m Bool
+               -- | If this returns a non-'Nothing' 'ETag', its value will be added to every HTTP response
+               -- in the @ETag:@ field.
+             , generateETag             :: Handler s m (Maybe ETag)
                -- | Checks if this resource has actually implemented a handler for a given HTTP method.
                -- Returns @501 Not Implemented@ if false. Default: true.
              , implemented              :: Handler s m Bool
@@ -118,6 +121,7 @@ defaultResource = Resource { allowMissingPost       = return False
                            , deleteResource         = return False
                            , entityTooLarge         = return False
                            , forbidden              = return False
+                           , generateETag           = return Nothing
                            , implemented            = return True
                            , isAuthorized           = return True
                            , isConflict             = return False

@@ -19,6 +19,7 @@ module Airship.Types
     , ResponseBody(..)
     , defaultRequest
     , entireRequestBody
+    , etagToByteString
     , eitherResponse
     , escapedResponse
     , runWebmachine
@@ -122,9 +123,11 @@ data ETag = Strong ByteString
           | Weak ByteString
           deriving (Eq)
 
-instance Show ETag where
-    show (Strong bs)    =         "\""  <> unpack bs <> "\""
-    show (Weak bs)      = "W/" <> "\""  <> unpack bs <> "\""
+instance Show ETag where show = unpack . etagToByteString
+
+etagToByteString :: ETag -> ByteString
+etagToByteString (Strong bs) = "\"" <> bs <> "\""
+etagToByteString (Weak bs) = "W/\"" <> bs <> "\""
 
 type StreamingBody m = (Builder -> m ()) -> m () -> m ()
 

@@ -22,6 +22,7 @@ import           Data.ByteString.Lazy.Char8 (unpack)
 import           Data.Maybe (fromMaybe)
 import           Data.Monoid ((<>))
 import           Data.Text(Text, pack)
+import           Data.Time.Clock
 
 import qualified Network.HTTP.Types as HTTP
 import           Network.Wai.Handler.Warp ( runSettings
@@ -50,7 +51,10 @@ routingParam t = do
 newtype State = State { _getState :: MVar (HashMap Text Integer) }
 
 resourceWithBody :: Text -> Resource State IO
-resourceWithBody t = defaultResource { contentTypesProvided = return [("text/plain", return (escapedResponse t))] }
+resourceWithBody t = defaultResource { contentTypesProvided = return [("text/plain", return (escapedResponse t))]
+                                     , lastModified = Just <$> liftIO getCurrentTime
+                                     , generateETag = return $ Just $ Strong "abc123"
+                                     }
 
 accountResource :: Resource State IO
 accountResource = defaultResource
@@ -72,6 +76,8 @@ accountResource = defaultResource
         return [("text/plain", textAction)]
 
     , allowMissingPost = return False
+
+    , lastModified = Just <$> liftIO getCurrentTime
 
     , resourceExists = do
         accountName <- routingParam "name"
@@ -99,7 +105,6 @@ postPutStates = do
     accountName <- routingParam "name"
     s <- getState
     return (val, accountName, s)
-
 
 myRoutes :: RoutingSpec State IO ()
 myRoutes = do

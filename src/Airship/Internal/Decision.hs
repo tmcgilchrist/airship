@@ -8,11 +8,12 @@ module Airship.Internal.Decision
     ( flow
     ) where
 
-import           Airship.Internal.Date (parseRfc1123Date)
+import           Airship.Internal.Date (parseRfc1123Date, utcTimeToRfc1123)
 import           Airship.Headers (addResponseHeader)
 import           Airship.Types ( Response(..)
                                , ResponseBody(..)
                                , Webmachine
+                               , etagToByteString
                                , getResponseBody
                                , getResponseHeaders
                                , halt
@@ -117,6 +118,17 @@ requestHeaderDate headerName = do
         dateHeader = lookup headerName reqHeaders
         parsedDate = dateHeader >>= parseRfc1123Date
     return parsedDate
+
+writeCacheTags :: Monad m => Resource s m -> FlowStateT s m ()
+writeCacheTags Resource{..} = lift $ do
+    etag <- generateETag
+    case etag of
+       Nothing -> return ()
+       Just t  -> addResponseHeader ("ETag", etagToByteString t)
+    modified <- lastModified
+    case modified of
+       Nothing -> return ()
+       Just d  -> addResponseHeader ("Last-Modified", utcTimeToRfc1123 d)
 
 ------------------------------------------------------------------------------
 -- Type definitions for all decision nodes
@@ -651,7 +663,7 @@ o20 r = do
         Empty   -> lift $ halt HTTP.status204
         _       -> o18 r
 
-o18 Resource{..} = do
+o18 r@Resource{..} = do
     trace "o18"
     multiple <- lift multipleChoices
     if multiple
@@ -673,6 +685,7 @@ o18 Resource{..} = do
                 b <- lift body
                 lift $ putResponseBody b
                 lift $ addResponseHeader ("Content-Type", renderHeader cType)
+            writeCacheTags r
             lift $ halt HTTP.status200
 
 o16 r = do

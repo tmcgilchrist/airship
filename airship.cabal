@@ -26,6 +26,7 @@ executable airship
                       , http-types >= 0.7
                       , mtl == 2.2.*
                       , text
+                      , time
                       , unordered-containers
                       , wai == 3.0.2.*
                       , warp == 3.0.5.*
@@ -60,6 +61,7 @@ library
                       , monad-control >= 1.0
                       , mtl == 2.2.*
                       , network
+                      , old-locale
                       , random
                       , text
                       , time

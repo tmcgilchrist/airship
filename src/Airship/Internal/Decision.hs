@@ -30,6 +30,7 @@ import           Airship.Internal.Parsers (parseEtagList)
 import           Control.Applicative ((<$>))
 #endif
 import           Control.Monad (when)
+import           Control.Monad.Catch
 import           Control.Monad.Trans (lift)
 import           Control.Monad.Trans.State.Strict (StateT(..), evalStateT,
                                                    get, modify)
@@ -83,8 +84,8 @@ type Flow s m = Resource s m -> FlowStateT s m (Response m)
 initFlowState :: FlowState s m
 initFlowState = FlowState Nothing
 
-flow :: Monad m => Resource s m -> Webmachine s m (Response m)
-flow r = evalStateT (b13 r) initFlowState
+flow :: MonadCatch m => Resource s m -> Webmachine s m (Response m)
+flow r = evalStateT (b13 r `catch` (lift . uncaughtException r)) initFlowState
 
 trace :: Monad m => Text -> FlowStateT s m ()
 trace t = lift $ tell [t]

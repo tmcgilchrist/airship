@@ -48,6 +48,7 @@ import           Control.Applicative
 #endif
 import Control.Monad (liftM)
 import Control.Monad.Base (MonadBase)
+import Control.Monad.Catch (MonadThrow (..), MonadCatch (..))
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Reader.Class (MonadReader, ask)
 import Control.Monad.State.Class (MonadState, get, modify)
@@ -162,7 +163,8 @@ newtype Webmachine s m a =
         deriving (Functor, Applicative, Monad, MonadIO, MonadBase b,
                   MonadReader (RequestReader m),
                   MonadWriter Trace,
-                  MonadState (ResponseState s m))
+                  MonadState (ResponseState s m),
+                  MonadThrow, MonadCatch)
 
 instance MonadTrans (Webmachine s) where
     lift = Webmachine . EitherT . (>>= return . Right) . lift

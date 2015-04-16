@@ -13,12 +13,14 @@ module Airship.Resource
 
 import Airship.Types
 
+import Control.Monad.Catch (SomeException, MonadThrow, throwM)
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import Data.ByteString (ByteString)
 
 import Network.HTTP.Types
 import Network.HTTP.Media (MediaType)
+import Control.Exception.Base (Deadlock (..))
 
 -- | Used when processing POST requests so as to handle the outcome of the binary decisions between
 -- handling a POST as a create request and whether to redirect after the POST is done.
@@ -100,6 +102,9 @@ data Resource s m =
              , resourceExists           :: Handler s m Bool
                -- | Returns @503 Service Unavailable@ if false. Default: true.
              , serviceAvailable         :: Handler s m Bool
+               -- | A handler invoked when any node in the decision tree raises an exception.
+               -- By default, this halts with a @500 Internal Server Error@
+             , uncaughtException        :: SomeException -> Handler s m (Response m)
                -- | Returns @414 Request URI Too Long@ if true. Default: false.
              , uriTooLong               :: Handler s m Bool
                -- | Returns @501 Not Implemented@ if false. Default: true.
@@ -136,6 +141,7 @@ defaultResource = Resource { allowMissingPost       = return False
                            , processPost            = return (PostProcess (return ()))
                            , resourceExists         = return True
                            , serviceAvailable       = return True
+                           , uncaughtException      = const serverError
                            , uriTooLong             = return False
                            , validContentHeaders    = return True
                            }

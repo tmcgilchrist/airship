@@ -54,10 +54,10 @@ library
                       , bytestring
                       , case-insensitive
                       , either == 4.3.*
+                      , exceptions >= 0.7
                       , http-date
                       , http-media
                       , http-types >= 0.7
-                      , lifted-base == 0.2.*
                       , monad-control >= 1.0
                       , mtl == 2.2.*
                       , network

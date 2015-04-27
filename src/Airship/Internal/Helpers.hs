@@ -58,12 +58,16 @@ fromWaiRequest req = Request
 
 toWaiResponse :: Response IO -> ByteString -> ByteString -> Wai.Response
 toWaiResponse Response{..} trace quip =
-    Wai.responseBuilder _responseStatus headers (fromBody _responseBody)
-        where   fromBody (ResponseBuilder b)    = b
-                fromBody _                      = mempty
-                headers                         = _responseHeaders ++
-                                                  [("Airship-Trace", trace)] ++
-                                                  [("Airship-Quip", quip)]
+    case _responseBody of
+        (ResponseBuilder b) ->
+            Wai.responseBuilder _responseStatus headers b
+        (ResponseFile path part) ->
+            Wai.responseFile _responseStatus headers path part
+        (ResponseStream streamer) ->
+            Wai.responseStream _responseStatus headers streamer
+        Empty ->
+            Wai.responseBuilder _responseStatus headers mempty
+    where headers = _responseHeaders ++ [("Airship-Trace", trace), ("Airship-Quip", quip)]
 
 -- | Given a 'RoutingSpec', a 404 resource, and a user state @s@, construct a WAI 'Application'.
 resourceToWai :: RoutingSpec s IO () -> Resource s IO -> s -> Wai.Application

@@ -6,7 +6,7 @@
 module Main where
 
 import           Airship
-import           Airship.Resource.Static (staticResource)
+import           Airship.Resource.Static (StaticOptions(..), staticResource)
 
 import           Blaze.ByteString.Builder.Html.Utf8 (fromHtmlEscapedText)
 
@@ -115,7 +115,7 @@ myRoutes static = do
 
 main :: IO ()
 main = do
-    static <- staticResource "assets"
+    static <- staticResource Cache "assets"
     let port = 3000
         host = "127.0.0.1"
         settings = setPort port (setHost host defaultSettings)

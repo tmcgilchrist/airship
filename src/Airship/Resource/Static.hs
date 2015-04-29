@@ -5,6 +5,7 @@
 
 module Airship.Resource.Static
     ( FileInfo(..)
+    , StaticOptions(..)
     , staticResource
     , allFilesAtRoot
     , epochToUTCTime
@@ -25,7 +26,7 @@ import           Airship.Types ( ETag(Strong)
 import           Airship.Resource (Resource(..), defaultResource)
 
 
-import           Control.Monad (foldM)
+import           Control.Monad (foldM, when)
 import qualified Crypto.Hash.MD5 as MD5
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
@@ -57,6 +58,8 @@ data FileInfo = FileInfo
     , _lastModified  :: UTCTime
     , _etag          :: ETag
     } deriving (Show, Eq, Ord)
+
+data StaticOptions = Cache | NoCache deriving (Eq)
 
 epochToUTCTime :: EpochTime -> UTCTime
 epochToUTCTime = posixSecondsToUTCTime . realToFrac
@@ -110,19 +113,24 @@ directoryTree f = do
     let infos = fileInfos (zipWith (\(a,b) c -> (a,b,c)) regularFiles etags)
     return (FileTree (Trie.fromList infos) (T.pack f))
 
-staticResource :: FilePath -> IO (Resource s m)
-staticResource p = staticResource' <$> directoryTree p
+staticResource :: StaticOptions -> FilePath -> IO (Resource s m)
+staticResource options p = staticResource' options <$> directoryTree p
 
-staticResource' :: FileTree -> Resource s m
-staticResource' FileTree{..} = defaultResource
+staticResource' :: StaticOptions -> FileTree -> Resource s m
+staticResource' options FileTree{..} = defaultResource
     { allowedMethods = return [ HTTP.methodGet, HTTP.methodHead ]
     , resourceExists = getFileInfo >> return True
-    , generateETag = Just . _etag <$> getFileInfo
-    , lastModified = Just . _lastModified <$> getFileInfo
+    , generateETag = if options == Cache
+                        then Just . _etag <$> getFileInfo
+                        else return Nothing
+    , lastModified = if options == Cache
+                        then Just . _lastModified <$> getFileInfo
+                        else return Nothing
     , contentTypesProvided = do
         fInfo <- getFileInfo
         -- ensure contentLength
         addResponseHeader (HTTP.hContentLength, pack (show (_size fInfo)))
+        when (options == NoCache) addNoCacheHeaders
         let response = return (ResponseFile (_path fInfo) Nothing)
             fileName = T.pack (takeFileName (_path fInfo))
             fromExtension = Mime.defaultMimeLookup fileName
@@ -139,3 +147,9 @@ staticResource' FileTree{..} = defaultResource
             case res of
                 (Just r) -> return r
                 Nothing -> halt HTTP.status404
+
+addNoCacheHeaders :: Handler s m ()
+addNoCacheHeaders = do
+    addResponseHeader (HTTP.hCacheControl, "no-cache, no-store, must-revalidate")
+    addResponseHeader ("Pragma", "no-cache")
+    addResponseHeader ("Expires", "0")

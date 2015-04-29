@@ -492,8 +492,8 @@ k13 r@Resource{..} = do
         ifNoneMatch = fromJust (lookup hIfNoneMatch reqHeaders)
         etags = parseEtagList ifNoneMatch
     if null etags
-        then j18 r
-        else l13 r
+        then l13 r
+        else j18 r
 
 k07 r@Resource{..} = do
     trace "k07"

@@ -120,7 +120,14 @@ main = do
         host = "127.0.0.1"
         settings = setPort port (setHost host defaultSettings)
         routes = myRoutes static
-        resource404 = defaultResource
+        response404 = escapedResponse "<html><head></head><body><h1>404 Not Found</h1></body></html>"
+        resource404 = defaultResource { resourceExists = return False
+                                      , contentTypesProvided = return
+                                            [ ( "text/html"
+                                              , return response404
+                                              )
+                                            ]
+                                      }
 
     mvar <- newMVar HM.empty
     let s = State mvar

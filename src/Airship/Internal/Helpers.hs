@@ -75,10 +75,10 @@ resourceToWai routes resource404 s req respond = do
     let routeMapping = runRouter routes
         pInfo = Wai.pathInfo req
         airshipReq = fromWaiRequest req
-        (resource, params') = route routeMapping pInfo resource404
+        (resource, (params', matched)) = route routeMapping pInfo resource404
     nowTime <- getCurrentTime
     quip <- getQuip
-    (response, trace) <- eitherResponse nowTime params' airshipReq s (flow resource)
+    (response, trace) <- eitherResponse nowTime params' matched airshipReq s (flow resource)
     let traceHeaderValue = traceHeader trace
     respond (toWaiResponse response traceHeaderValue quip)
 

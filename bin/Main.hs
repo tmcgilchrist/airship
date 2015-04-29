@@ -6,6 +6,7 @@
 module Main where
 
 import           Airship
+import           Airship.Resource.Static (StaticOptions(..), staticResource)
 
 import           Blaze.ByteString.Builder.Html.Utf8 (fromHtmlEscapedText)
 
@@ -106,18 +107,27 @@ postPutStates = do
     s <- getState
     return (val, accountName, s)
 
-myRoutes :: RoutingSpec State IO ()
-myRoutes = do
+myRoutes :: Resource State IO -> RoutingSpec State IO ()
+myRoutes static = do
     root                        #> resourceWithBody "Just the root resource"
     "account" </> var "name"    #> accountResource
+    "static"  </> star          #> static
 
 main :: IO ()
 main = do
+    static <- staticResource Cache "assets"
     let port = 3000
         host = "127.0.0.1"
         settings = setPort port (setHost host defaultSettings)
-        routes = myRoutes
-        resource404 = defaultResource
+        routes = myRoutes static
+        response404 = escapedResponse "<html><head></head><body><h1>404 Not Found</h1></body></html>"
+        resource404 = defaultResource { resourceExists = return False
+                                      , contentTypesProvided = return
+                                            [ ( "text/html"
+                                              , return response404
+                                              )
+                                            ]
+                                      }
 
     mvar <- newMVar HM.empty
     let s = State mvar

@@ -80,27 +80,30 @@ newtype RoutingSpec s m a = RoutingSpec { getRouter :: Writer [(Route, Resource 
     deriving (Functor, Applicative, Monad, MonadWriter [(Route, Resource s m)])
 
 
-route :: [(Route, a)] -> [Text] -> a -> (a, HashMap Text Text)
-route routes pInfo resource404 = foldr' (matchRoute pInfo) (resource404, mempty) routes
+route :: [(Route, a)] -> [Text] -> a -> (a, (HashMap Text Text, [Text]))
+route routes pInfo resource404 = foldr' (matchRoute pInfo) (resource404, (mempty, mempty)) routes
 
-matchRoute :: [Text] -> (Route, a) -> (a, HashMap Text Text) -> (a, HashMap Text Text)
+matchRoute :: [Text] -> (Route, a) -> (a, (HashMap Text Text, [Text])) -> (a, (HashMap Text Text, [Text]))
 matchRoute paths (rSpec, resource) (previousMatch, previousMap) =
     case matchesRoute paths rSpec of
       Nothing -> (previousMatch, previousMap)
       Just m  -> (resource, m)
 
-matchesRoute :: [Text] -> Route -> Maybe (HashMap Text Text)
-matchesRoute paths spec = matchesRoute' paths (getRoute spec) mempty where
+matchesRoute :: [Text] -> Route -> Maybe (HashMap Text Text, [Text])
+matchesRoute paths spec = matchesRoute' paths (getRoute spec) (mempty, mempty) False where
     -- recursion is over, and we never bailed out to return false, so we match
-    matchesRoute' []        []              acc     = Just acc
+    matchesRoute' []        []              acc     _   = Just acc
     -- there is an extra part of the path left, and we don't have more matching
-    matchesRoute' (_ph:_ptl) []             _       = Nothing
+    matchesRoute' (_ph:_ptl) []             _       _   = Nothing
     -- we match whatever is left, so it doesn't matter what's left in the path
-    matchesRoute' _         (RestUnbound:_) acc     = Just acc
+    matchesRoute' r        (RestUnbound:_) (h, d)  _   = Just (h, d ++ r)
     -- we match a specific string, and it matches this part of the path,
     -- so recur
-    matchesRoute' (ph:ptl)  (Bound sh:stt)  acc
+    matchesRoute' (ph:ptl)  (Bound sh:stt)  (h, dispatch) True
         | ph == sh
-                                                    = matchesRoute' ptl stt acc
-    matchesRoute' (ph:ptl)  (Var t:stt)     acc     = matchesRoute' ptl stt (insert t ph acc)
-    matchesRoute' _         _               _acc    = Nothing
+                                                    = matchesRoute' ptl stt (h, dispatch ++ [ph]) True
+    matchesRoute' (ph:ptl)  (Bound sh:stt)  (h, dispatch) False
+        | ph == sh
+                                                    = matchesRoute' ptl stt (h, dispatch) False
+    matchesRoute' (ph:ptl)  (Var t:stt)     acc   _ = matchesRoute' ptl stt (insert t ph (fst acc), snd acc) True
+    matchesRoute' _         _               _acc  _ = Nothing

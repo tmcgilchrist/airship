@@ -122,7 +122,7 @@ data RequestReader m = RequestReader { _now :: UTCTime
 
 data ETag = Strong ByteString
           | Weak ByteString
-          deriving (Eq)
+          deriving (Eq, Ord)
 
 instance Show ETag where show = unpack . etagToByteString
 

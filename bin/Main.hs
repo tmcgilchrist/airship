@@ -6,6 +6,7 @@
 module Main where
 
 import           Airship
+import           Airship.Resource.Static (staticResource)
 
 import           Blaze.ByteString.Builder.Html.Utf8 (fromHtmlEscapedText)
 
@@ -106,17 +107,19 @@ postPutStates = do
     s <- getState
     return (val, accountName, s)
 
-myRoutes :: RoutingSpec State IO ()
-myRoutes = do
+myRoutes :: Resource State IO -> RoutingSpec State IO ()
+myRoutes static = do
     root                        #> resourceWithBody "Just the root resource"
     "account" </> var "name"    #> accountResource
+    "static"  </> star          #> static
 
 main :: IO ()
 main = do
+    static <- staticResource "assets"
     let port = 3000
         host = "127.0.0.1"
         settings = setPort port (setHost host defaultSettings)
-        routes = myRoutes
+        routes = myRoutes static
         resource404 = defaultResource
 
     mvar <- newMVar HM.empty

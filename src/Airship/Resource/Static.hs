@@ -26,7 +26,7 @@ import           Airship.Types ( ETag(Strong)
 import           Airship.Resource (Resource(..), defaultResource)
 
 
-import           Control.Monad (foldM, when)
+import           Control.Monad (foldM)
 import qualified Crypto.Hash.MD5 as MD5
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
@@ -128,9 +128,9 @@ staticResource' options FileTree{..} = defaultResource
                         else return Nothing
     , contentTypesProvided = do
         fInfo <- getFileInfo
-        -- ensure contentLength
-        addResponseHeader (HTTP.hContentLength, pack (show (_size fInfo)))
-        when (options == NoCache) addNoCacheHeaders
+        if options == Cache
+            then addResponseHeader (HTTP.hContentLength, pack (show (_size fInfo)))
+            else addNoCacheHeaders
         let response = return (ResponseFile (_path fInfo) Nothing)
             fileName = T.pack (takeFileName (_path fInfo))
             fromExtension = Mime.defaultMimeLookup fileName

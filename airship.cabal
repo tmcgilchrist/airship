@@ -35,7 +35,7 @@ library
   build-depends:        attoparsec
                       , base >= 4.7 && < 5
                       , base64-bytestring == 1.0.*
-                      , blaze-builder == 0.3.*
+                      , blaze-builder >= 0.3 && < 0.5
                       , bytestring
                       , bytestring-trie == 0.2.4.*
                       , case-insensitive
@@ -49,14 +49,14 @@ library
                       , lifted-base == 0.2.*
                       , mime-types == 0.1.0.*
                       , monad-control >= 1.0
-                      , mtl == 2.2.*
+                      , mtl >= 2.2
                       , network
                       , old-locale
                       , random
                       , text
                       , time
-                      , transformers == 0.4.2.*
-                      , transformers-base == 0.4.3.*
+                      , transformers
+                      , transformers-base
                       , unix == 2.7.*
                       , unordered-containers
                       , wai == 3.0.*

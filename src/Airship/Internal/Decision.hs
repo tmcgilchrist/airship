@@ -364,7 +364,7 @@ g09 r@Resource{..} = do
             g11 r
 
 g08 r@Resource{..} = do
-    trace "g07"
+    trace "g08"
     req <- lift request
     let reqHeaders = requestHeaders req
     case lookup hIfMatch reqHeaders of

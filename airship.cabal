@@ -92,4 +92,4 @@ test-suite unit
                , tasty-hunit        >= 0.9.1 && < 0.10
                , transformers == 0.4.2.*
                , wai == 3.0.*
-  ghc-options: -Wall -Werror -threaded -O1 -fno-warn-orphans
+  ghc-options: -Wall -threaded -O1 -fno-warn-orphans

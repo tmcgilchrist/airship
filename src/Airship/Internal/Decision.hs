@@ -192,7 +192,9 @@ b10 r@Resource{..} = do
     allowed <- lift allowedMethods
     if requestMethod req `elem` allowed
         then b09 r
-        else lift $ halt HTTP.status405
+        else do
+            lift $ addResponseHeader ("Allow", renderHeader allowed)
+            lift $ halt HTTP.status405
 
 b09 r@Resource{..} = do
     trace "b09"

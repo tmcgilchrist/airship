@@ -638,8 +638,9 @@ processPostAction (PostCreateRedirect ts) r = do
     lift $ halt HTTP.status303
 processPostAction (PostProcess p) r =
     lift p >> p11 r
-processPostAction (PostProcessRedirect ts) _r = do
+processPostAction (PostProcessRedirect p ts) _r = do
     locBs <- lift ts
+    lift p
     lift $ addResponseHeader ("Location", locBs)
     lift $ halt HTTP.status303
 

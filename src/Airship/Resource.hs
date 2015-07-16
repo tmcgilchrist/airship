@@ -27,7 +27,7 @@ data PostResponse s m
     = PostCreate [Text] -- ^ Treat this request as a PUT.
     | PostCreateRedirect [Text] -- ^ Treat this request as a PUT, then redirect.
     | PostProcess (Handler s m ()) -- ^ Process as a POST, but don't redirect.
-    | PostProcessRedirect (Handler s m ByteString) -- ^ Process and redirect.
+    | PostProcessRedirect (Handler s m ()) (Handler s m ByteString) -- ^ Process and redirect.
 
 data Resource s m =
     Resource { -- | Whether to allow HTTP POSTs to a missing resource. Default: false.

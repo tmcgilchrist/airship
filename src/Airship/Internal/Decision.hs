@@ -40,6 +40,7 @@ import           Blaze.ByteString.Builder (toByteString)
 import           Data.Maybe (fromJust, isJust)
 import           Data.Text (Text)
 import           Data.Time.Clock (UTCTime)
+import           Data.ByteString                  (ByteString, intercalate)
 
 import           Network.HTTP.Media
 import qualified Network.HTTP.Types as HTTP
@@ -193,7 +194,7 @@ b10 r@Resource{..} = do
     if requestMethod req `elem` allowed
         then b09 r
         else do
-            lift $ addResponseHeader ("Allow", renderHeader allowed)
+            lift $ addResponseHeader ("Allow",  intercalate "," allowed)
             lift $ halt HTTP.status405
 
 b09 r@Resource{..} = do

@@ -76,19 +76,20 @@ import qualified Network.Wai as Wai
 
 -- | Very similar to WAI's @Request@ type, except generalized to an arbitrary monad @m@.
 data Request m =
-    Request { requestMethod :: Method -- ^ The request method -- @GET@, @POST@, @DELETE@, et cetera.
-            , httpVersion :: HttpVersion -- ^ The HTTP version (usually 1.1; hopefully someday 2.0).
-            , rawPathInfo :: ByteString -- ^ The unparsed path information yielded from the WAI server. You probably want 'pathInfo'.
-            , rawQueryString :: ByteString -- ^ The query string, if any, yielded from the WAI server. You probably want 'queryString'.
-            , requestHeaders :: RequestHeaders -- ^ An association list of (headername, value) pairs. See "Network.HTTP.Types.Header" for the possible values.
-            , isSecure :: Bool -- ^ Was this request made over SSL/TLS?
-            , remoteHost :: SockAddr -- ^ The address information of the client.
-            , pathInfo :: [Text] -- ^ The URL, stripped of hostname and port, split on forward-slashes
-            , queryString :: Query -- ^ Parsed query string information.
-            , requestBody :: m ByteString -- ^ A monadic action that extracts a (possibly-empty) chunk of the request body.
-            , requestBodyLength :: Wai.RequestBodyLength -- ^ Either @ChunkedBody@ or a @KnownLength 'Word64'@.
-            , requestHeaderHost :: Maybe ByteString -- ^ Contains the Host header.
+    Request { requestMethod      :: Method -- ^ The request method -- @GET@, @POST@, @DELETE@, et cetera.
+            , httpVersion        :: HttpVersion -- ^ The HTTP version (usually 1.1; hopefully someday 2.0).
+            , rawPathInfo        :: ByteString -- ^ The unparsed path information yielded from the WAI server. You probably want 'pathInfo'.
+            , rawQueryString     :: ByteString -- ^ The query string, if any, yielded from the WAI server. You probably want 'queryString'.
+            , requestHeaders     :: RequestHeaders -- ^ An association list of (headername, value) pairs. See "Network.HTTP.Types.Header" for the possible values.
+            , isSecure           :: Bool -- ^ Was this request made over SSL/TLS?
+            , remoteHost         :: SockAddr -- ^ The address information of the client.
+            , pathInfo           :: [Text] -- ^ The URL, stripped of hostname and port, split on forward-slashes
+            , queryString        :: Query -- ^ Parsed query string information.
+            , requestBody        :: m ByteString -- ^ A monadic action that extracts a (possibly-empty) chunk of the request body.
+            , requestBodyLength  :: Wai.RequestBodyLength -- ^ Either @ChunkedBody@ or a @KnownLength 'Word64'@.
+            , requestHeaderHost  :: Maybe ByteString -- ^ Contains the Host header.
             , requestHeaderRange :: Maybe ByteString -- ^ Contains the Range header.
+            , waiRequest         :: Wai.Request
             }
 
 defaultRequest :: Monad m => Request m
@@ -106,6 +107,7 @@ defaultRequest = Request
     , requestBodyLength = Wai.KnownLength 0
     , requestHeaderHost = Nothing
     , requestHeaderRange = Nothing
+    , waiRequest = Wai.defaultRequest
     }
 
 -- | Reads the entirety of the request body in a single string.

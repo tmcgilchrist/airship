@@ -8,24 +8,32 @@ module Airship.Internal.Helpers where
 #if __GLASGOW_HASKELL__ < 710
 import           Control.Applicative
 #endif
-import           Data.ByteString     (ByteString)
+import           Data.ByteString               (ByteString)
+import qualified Data.ByteString.Lazy.Internal as LazyBS
 import           Data.Maybe
 #if __GLASGOW_HASKELL__ < 710
 import           Data.Monoid
 #endif
-import           Data.Text           (Text, intercalate)
+import           Data.Text                     (Text, intercalate)
 import           Data.Text.Encoding
-import           Data.Time           (getCurrentTime)
+import           Data.Time                     (getCurrentTime)
 import           Network.HTTP.Media
-import qualified Network.HTTP.Types  as HTTP
-import qualified Network.Wai         as Wai
+import qualified Network.HTTP.Types            as HTTP
+import qualified Network.Wai                   as Wai
+import qualified Network.Wai.Parse             as Wai.Parse
 import           System.Random
 
 import           Airship.Internal.Decision
+import           Airship.Internal.Route
 import           Airship.Resource
 import           Airship.Types
-import           Airship.Internal.Route
 
+-- | Parse form data uploaded with a @Content-Type@ of either
+-- @www-form-urlencoded@ or @multipart/form-data@ to return a
+-- list of parameter names and values and a list of uploaded
+-- files and their information.
+parseFormData :: Request IO -> IO ([Wai.Parse.Param], [Wai.Parse.File LazyBS.ByteString])
+parseFormData r = Wai.Parse.parseRequestBody Wai.Parse.lbsBackEnd (waiRequest r)
 
 -- | Returns @True@ if the request's @Content-Type@ header is one of the
 -- provided media types. If the @Content-Type@ header is not present,
@@ -54,6 +62,7 @@ fromWaiRequest req = Request
     , requestBodyLength = Wai.requestBodyLength req
     , requestHeaderHost = Wai.requestHeaderHost req
     , requestHeaderRange = Wai.requestHeaderRange req
+    , waiRequest = req
     }
 
 toWaiResponse :: Response IO -> ByteString -> ByteString -> Wai.Response

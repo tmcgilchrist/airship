@@ -1,5 +1,6 @@
 module Airship.Helpers
-    ( contentTypeMatches
+    ( parseFormData
+    , contentTypeMatches
     , fromWaiRequest
     , resourceToWai
     ) where

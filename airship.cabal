@@ -60,6 +60,7 @@ library
                       , unix == 2.7.*
                       , unordered-containers
                       , wai == 3.0.*
+                      , wai-extra == 3.0.*
 
 executable airship-example
   main-is:              Main.hs

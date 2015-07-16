@@ -640,8 +640,8 @@ processPostAction (PostProcess p) r =
     lift p >> p11 r
 processPostAction (PostProcessRedirect p ts) _r = do
     locBs <- lift ts
-    lift p
     lift $ addResponseHeader ("Location", locBs)
+    lift p
     lift $ halt HTTP.status303
 
 n05 r@Resource{..} = do

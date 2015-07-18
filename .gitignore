@@ -7,3 +7,4 @@ dist
 *.chs.h
 .virthualenv
 .DS_Store
+.stack-work/

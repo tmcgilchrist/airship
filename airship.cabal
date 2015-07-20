@@ -75,7 +75,7 @@ executable airship-example
                       , text
                       , time
                       , unordered-containers
-                      , wai == 3.0.2.*
+                      , wai == 3.0.*
                       , warp == 3.0.*
 
 test-suite unit

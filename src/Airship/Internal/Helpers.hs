@@ -8,18 +8,18 @@ module Airship.Internal.Helpers where
 #if __GLASGOW_HASKELL__ < 710
 import           Control.Applicative
 #endif
-import           Data.ByteString               (ByteString)
-import qualified Data.ByteString.Lazy.Internal as LazyBS
+import           Data.ByteString           (ByteString)
+import qualified Data.ByteString.Lazy      as LazyBS
 import           Data.Maybe
 #if __GLASGOW_HASKELL__ < 710
 import           Data.Monoid
 #endif
-import           Data.Text                     (Text, intercalate)
+import           Data.Text                 (Text, intercalate)
 import           Data.Text.Encoding
-import           Data.Time                     (getCurrentTime)
+import           Data.Time                 (getCurrentTime)
 import           Network.HTTP.Media
-import qualified Network.HTTP.Types            as HTTP
-import qualified Network.Wai                   as Wai
+import qualified Network.HTTP.Types        as HTTP
+import qualified Network.Wai               as Wai
 import           Network.Wai.Parse
 import           System.Random
 

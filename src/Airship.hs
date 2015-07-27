@@ -1,3 +1,6 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
+
 module Airship
   ( module Airship.Resource
   , module Airship.Headers

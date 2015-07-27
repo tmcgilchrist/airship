@@ -27,6 +27,7 @@ import           Airship.Internal.Decision
 import           Airship.Internal.Route
 import           Airship.Resource
 import           Airship.Types
+import           Airship.Headers
 
 -- | Parse form data uploaded with a @Content-Type@ of either
 -- @www-form-urlencoded@ or @multipart/form-data@ to return a
@@ -45,6 +46,17 @@ contentTypeMatches validTypes = do
     return $ case cType of
         Nothing -> True
         Just t  -> isJust $ matchAccept validTypes t
+
+-- | Issue an HTTP 302 (Found) response, with `location' as the destination.
+redirectTemporarily :: ByteString -> Handler s m a
+redirectTemporarily location =
+    addResponseHeader ("Location", location) >> halt HTTP.status302
+
+-- | Issue an HTTP 301 (Moved Permantently) response,
+-- with `location' as the destination.
+redirectPermanently :: ByteString -> Handler s m a
+redirectPermanently location =
+    addResponseHeader ("Location", location) >> halt HTTP.status301
 
 -- | Construct an Airship 'Request' from a WAI request.
 fromWaiRequest :: Wai.Request -> Request IO

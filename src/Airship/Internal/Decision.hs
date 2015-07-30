@@ -242,8 +242,11 @@ b04 r@Resource{..} = do
 b03 r@Resource{..} = do
     trace "b03"
     req <- lift request
+    allowed <- lift allowedMethods
     if requestMethod req == HTTP.methodOptions
-        then lift $ halt HTTP.status200
+        then do
+            lift $ addResponseHeader ("Allow",  intercalate "," allowed)
+            lift $ halt HTTP.status200
         else c03 r
 
 ------------------------------------------------------------------------------

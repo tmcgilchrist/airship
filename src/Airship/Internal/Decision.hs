@@ -246,7 +246,7 @@ b03 r@Resource{..} = do
     if requestMethod req == HTTP.methodOptions
         then do
             lift $ addResponseHeader ("Allow",  intercalate "," allowed)
-            lift $ halt HTTP.status200
+            lift $ halt HTTP.status204
         else c03 r
 
 ------------------------------------------------------------------------------

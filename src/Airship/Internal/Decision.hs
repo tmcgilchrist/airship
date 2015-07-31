@@ -35,7 +35,6 @@ import           Control.Monad.Trans.State.Strict (StateT(..), evalStateT,
                                                    get, modify)
 import           Control.Monad.Writer.Class (tell)
 
-import           Data.ByteString (ByteString)
 import           Blaze.ByteString.Builder (toByteString)
 import           Data.Maybe (fromJust, isJust)
 import           Data.Text (Text)

@@ -62,23 +62,6 @@ library
                       , wai == 3.0.*
                       , wai-extra == 3.0.*
 
-executable airship-example
-  main-is:              Main.hs
-  hs-source-dirs: bin
-  ghc-options:  -Wall
-  default-language:    Haskell2010
-  build-depends:        base >=4.7 && < 5
-                      , airship
-                      , blaze-builder >=0.3 && < 0.5
-                      , bytestring
-                      , http-types >= 0.7
-                      , mtl
-                      , text
-                      , time
-                      , unordered-containers
-                      , wai == 3.0.*
-                      , warp == 3.0.*
-
 test-suite unit
   default-language: Haskell2010
   type: exitcode-stdio-1.0

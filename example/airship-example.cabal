@@ -24,4 +24,4 @@ executable example
                       , time
                       , unordered-containers
                       , wai == 3.0.*
-                      , warp == 3.0.*
+                      , warp

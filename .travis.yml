@@ -22,7 +22,7 @@ install:
 script:
   - stack --no-terminal --skip-ghc-check test
   - stack sdist   # tests that a source-distribution can be generated
-
+  - stack install cabal
   # The following scriptlet checks that the resulting source distribution can be built & installed
   - export SRC_TGZ=$(stack exec cabal info . | awk '{print $2 ".tar.gz";exit}') ;
     cd .stack-work/dist/;

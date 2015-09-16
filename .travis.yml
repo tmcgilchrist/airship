@@ -25,7 +25,7 @@ script:
 
   # The following scriptlet checks that the resulting source distribution can be built & installed
   - export SRC_TGZ=$(stack exec cabal info . | awk '{print $2 ".tar.gz";exit}') ;
-    cd dist/;
+    cd .stack-work/dist/;
     if [ -f "$SRC_TGZ" ]; then
        stack exec cabal install --force-reinstalls "$SRC_TGZ";
     else

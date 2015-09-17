@@ -65,9 +65,6 @@ hIfUnmodifiedSince = "If-Unmodified-Since"
 hIfNoneMatch :: HTTP.HeaderName
 hIfNoneMatch = "If-None-Match"
 
-hIfModifiedSince :: HTTP.HeaderName
-hIfModifiedSince = "If-Modified-Since"
-
 ------------------------------------------------------------------------------
 -- FlowState: StateT used for recording information as we walk the decision
 -- tree
@@ -523,7 +520,7 @@ k05 r@Resource{..} = do
 
 l17 r@Resource{..} = do
     trace "l17"
-    parsedDate <- lift $ requestHeaderDate hIfModifiedSince
+    parsedDate <- lift $ requestHeaderDate HTTP.hIfModifiedSince
     modified <- lift lastModified
     let maybeGreater = do
             lastM <- modified
@@ -535,7 +532,7 @@ l17 r@Resource{..} = do
 
 l15 r@Resource{..} = do
     trace "l15"
-    parsedDate <- lift $ requestHeaderDate hIfModifiedSince
+    parsedDate <- lift $ requestHeaderDate HTTP.hIfModifiedSince
     now <- lift requestTime
     let maybeGreater = (> now) <$> parsedDate
     if maybeGreater == Just True
@@ -546,7 +543,7 @@ l14 r@Resource{..} = do
     trace "l14"
     req <- lift request
     let reqHeaders = requestHeaders req
-        dateHeader = lookup hIfModifiedSince reqHeaders
+        dateHeader = lookup HTTP.hIfModifiedSince reqHeaders
         validDate = isJust (dateHeader >>= parseRfc1123Date)
     if validDate
         then l15 r
@@ -556,7 +553,7 @@ l13 r@Resource{..} = do
     trace "l13"
     req <- lift request
     let reqHeaders = requestHeaders req
-    case lookup hIfModifiedSince reqHeaders of
+    case lookup HTTP.hIfModifiedSince reqHeaders of
         (Just _h) ->
             l14 r
         Nothing ->

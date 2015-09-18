@@ -15,7 +15,7 @@ import           Blaze.ByteString.Builder.Html.Utf8 (fromHtmlEscapedText)
 import           Control.Applicative                ((<$>))
 #endif
 import           Control.Concurrent.MVar
-import           Control.Monad.Trans                (liftIO)
+import           Control.Monad.State                hiding (State)
 
 import qualified Data.ByteString.Lazy               as LB
 import           Data.ByteString.Lazy.Char8         (unpack)
@@ -35,28 +35,28 @@ import           Network.Wai.Handler.Warp           (defaultSettings,
 -- Helpers
 -- ***************************************************************************
 
-getBody :: Handler s IO LB.ByteString
+getBody :: Handler m LB.ByteString
 getBody = do
     req <- request
-    liftIO (entireRequestBody req)
+    lift (entireRequestBody req)
 
-readBody :: Handler s IO Integer
+readBody :: MonadIO m => Handler m Integer
 readBody = read . unpack <$> getBody
 
-routingParam :: Text -> Handler s m Text
+routingParam :: Text -> Handler m Text
 routingParam t = do
     p <- params
     return (p HM.! t)
 
 newtype State = State { _getState :: MVar (HashMap Text Integer) }
 
-resourceWithBody :: Text -> Resource State IO
+resourceWithBody :: (MonadIO m, MonadState State m) => Text -> Resource m
 resourceWithBody t = defaultResource { contentTypesProvided = return [("text/plain", return (escapedResponse t))]
                                      , lastModified = Just <$> liftIO getCurrentTime
                                      , generateETag = return $ Just $ Strong "abc123"
                                      }
 
-accountResource :: Resource State IO
+accountResource :: (MonadIO m, MonadState State m) => Resource m
 accountResource = defaultResource
     { allowedMethods = return [ HTTP.methodGet
                               , HTTP.methodHead
@@ -67,7 +67,7 @@ accountResource = defaultResource
 
     , contentTypesProvided = do
         let textAction = do
-                s <- getState
+                s <- lift get
                 m <- liftIO (readMVar (_getState s))
                 accountNameM <- HM.lookup "name" <$> params
                 let val = fromMaybe 0 (accountNameM >>= flip HM.lookup m)
@@ -81,7 +81,7 @@ accountResource = defaultResource
 
     , resourceExists = do
         accountName <- routingParam "name"
-        s <- getState
+        s <- lift get
         m <- liftIO (readMVar (_getState s))
         return $ HM.member accountName m
 
@@ -99,14 +99,14 @@ accountResource = defaultResource
     )]
     }
 
-postPutStates :: Handler State IO (Integer, Text, State)
+postPutStates :: (MonadIO m, MonadState State m) => Handler m (Integer, Text, State)
 postPutStates = do
     val <- readBody
     accountName <- routingParam "name"
-    s <- getState
+    s <- lift get
     return (val, accountName, s)
 
-myRoutes :: Resource State IO -> RoutingSpec State IO ()
+myRoutes :: Resource (StateT State IO) -> RoutingSpec (StateT State IO) ()
 myRoutes static = do
     root                        #> resourceWithBody "Just the root resource"
     "account" </> var "name"    #> accountResource
@@ -131,4 +131,7 @@ main = do
     mvar <- newMVar HM.empty
     let s = State mvar
     putStrLn "Listening on port 3000"
-    runSettings settings (resourceToWai defaultAirshipConfig routes resource404 s)
+    runSettings settings (resourceToWai defaultAirshipConfig (hoist (flip evalStateT s) routes) resource404)
+
+hoist :: (forall a. m a -> n a) -> RoutingSpec m b -> RoutingSpec n b
+hoist = error "Not possible to implement yet. From MFunctor, but needs changes to airship internals"

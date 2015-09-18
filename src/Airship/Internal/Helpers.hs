@@ -41,7 +41,7 @@ parseFormData r = parseRequestBody lbsBackEnd (waiRequest r)
 -- | Returns @True@ if the request's @Content-Type@ header is one of the
 -- provided media types. If the @Content-Type@ header is not present,
 -- this function will return True.
-contentTypeMatches :: [MediaType] -> Handler s m Bool
+contentTypeMatches :: [MediaType] -> Handler m Bool
 contentTypeMatches validTypes = do
     headers <- requestHeaders <$> request
     let cType = lookup HTTP.hContentType headers
@@ -50,13 +50,13 @@ contentTypeMatches validTypes = do
         Just t  -> isJust $ matchAccept validTypes t
 
 -- | Issue an HTTP 302 (Found) response, with `location' as the destination.
-redirectTemporarily :: ByteString -> Handler s m a
+redirectTemporarily :: ByteString -> Handler m a
 redirectTemporarily location =
     addResponseHeader ("Location", location) >> halt HTTP.status302
 
 -- | Issue an HTTP 301 (Moved Permantently) response,
 -- with `location' as the destination.
-redirectPermanently :: ByteString -> Handler s m a
+redirectPermanently :: ByteString -> Handler m a
 redirectPermanently location =
     addResponseHeader ("Location", location) >> halt HTTP.status301
 
@@ -97,15 +97,15 @@ toWaiResponse Response{..} cfg trace quip =
                       else []
 
 -- | Given a 'RoutingSpec', a 404 resource, and a user state @s@, construct a WAI 'Application'.
-resourceToWai :: AirshipConfig -> RoutingSpec s IO () -> Resource s IO -> s -> Wai.Application
-resourceToWai cfg routes resource404 s req respond = do
+resourceToWai :: AirshipConfig -> RoutingSpec IO () -> Resource IO -> Wai.Application
+resourceToWai cfg routes resource404 req respond = do
     let routeMapping = runRouter routes
         pInfo = Wai.pathInfo req
         airshipReq = fromWaiRequest req
         (resource, (params', matched)) = route routeMapping pInfo resource404
     nowTime <- getCurrentTime
     quip <- getQuip
-    (response, trace) <- eitherResponse nowTime params' matched airshipReq s (flow resource)
+    (response, trace) <- eitherResponse nowTime params' matched airshipReq (flow resource)
     respond (toWaiResponse response cfg (traceHeader trace) quip)
 
 getQuip :: IO ByteString

@@ -25,9 +25,6 @@ module Airship.Types
     , runWebmachine
     , request
     , requestTime
-    , getState
-    , putState
-    , modifyState
     , getResponseHeaders
     , getResponseBody
     , params
@@ -152,31 +149,30 @@ data Response m = Response { _responseStatus     :: Status
                            , _responseBody       :: ResponseBody m
                            }
 
-data ResponseState s m = ResponseState { stateUser      :: s
-                                       , stateHeaders   :: ResponseHeaders
-                                       , stateBody      :: ResponseBody m
-                                       , _params        :: HashMap Text Text
-                                       , _dispatchPath   :: [Text]
-                                       }
+data ResponseState m = ResponseState { stateHeaders   :: ResponseHeaders
+                                     , stateBody      :: ResponseBody m
+                                     , _params        :: HashMap Text Text
+                                     , _dispatchPath  :: [Text]
+                                     }
 
 type Trace = [Text]
 
-newtype Webmachine s m a =
-    Webmachine { getWebmachine :: EitherT (Response m) (RWST (RequestReader m) Trace (ResponseState s m) m) a }
+newtype Webmachine m a =
+    Webmachine { getWebmachine :: EitherT (Response m) (RWST (RequestReader m) Trace (ResponseState m) m) a }
         deriving (Functor, Applicative, Monad, MonadIO, MonadBase b,
                   MonadReader (RequestReader m),
                   MonadWriter Trace,
-                  MonadState (ResponseState s m))
+                  MonadState (ResponseState m))
 
-instance MonadTrans (Webmachine s) where
+instance MonadTrans Webmachine where
     lift = Webmachine . EitherT . (>>= return . Right) . lift
 
-newtype StMWebmachine s m a = StMWebmachine {
-      unStMWebmachine :: StM (EitherT (Response m) (RWST (RequestReader m) Trace (ResponseState s m) m)) a
+newtype StMWebmachine m a = StMWebmachine {
+      unStMWebmachine :: StM (EitherT (Response m) (RWST (RequestReader m) Trace (ResponseState m) m)) a
     }
 
-instance MonadBaseControl b m => MonadBaseControl b (Webmachine s m) where
-  type StM (Webmachine s m) a = StMWebmachine s m a
+instance MonadBaseControl b m => MonadBaseControl b (Webmachine m) where
+  type StM (Webmachine m) a = StMWebmachine m a
   liftBaseWith f = Webmachine
                      $ liftBaseWith
                      $ \g' -> f
@@ -185,68 +181,53 @@ instance MonadBaseControl b m => MonadBaseControl b (Webmachine s m) where
   restoreM = Webmachine . restoreM . unStMWebmachine
 
 -- | A convenience synonym that writes the @Monad@ type constraint for you.
-type Handler s m a = Monad m => Webmachine s m a
+type Handler m a = Monad m => Webmachine m a
 
 -- Functions inside the Webmachine Monad -------------------------------------
 ------------------------------------------------------------------------------
 
 -- | Returns the 'Request' that this 'Handler' is currently processing.
-request :: Handler s m (Request m)
+request :: Handler m (Request m)
 request = _request <$> ask
 
 -- | Returns the bound routing parameters extracted from the routing system (see "Airship.Route").
-params :: Handler s m (HashMap Text Text)
+params :: Handler m (HashMap Text Text)
 params = _params <$> get
 
-dispatchPath :: Handler s m [Text]
+dispatchPath :: Handler m [Text]
 dispatchPath = _dispatchPath <$> get
 
 -- | Returns the time at which this request began processing.
-requestTime :: Handler s m UTCTime
+requestTime :: Handler m UTCTime
 requestTime = _now <$> ask
 
--- | Returns the user state (of type @s@) in the provided @'Handler' s m@.
-getState :: Handler s m s
-getState = stateUser <$> get
-
--- | Sets the user state.
-putState :: s -> Handler s m ()
-putState s = modify updateState
-    where updateState rs = rs {stateUser = s}
-
--- | Applies the provided function to the user state.
-modifyState :: (s -> s) -> Handler s m ()
-modifyState f = modify modifyState'
-    where modifyState' rs@ResponseState{stateUser=uState} =
-                                        rs {stateUser = f uState}
-
 -- | Returns the 'ResponseHeaders' stored in the current 'Handler'.
-getResponseHeaders :: Handler s m ResponseHeaders
+getResponseHeaders :: Handler m ResponseHeaders
 getResponseHeaders = stateHeaders <$> get
 
 -- | Returns the current 'ResponseBody' that this 'Handler' is storing.
-getResponseBody :: Handler s m (ResponseBody m)
+getResponseBody :: Handler m (ResponseBody m)
 getResponseBody = stateBody <$> get
 
 -- | Given a new 'ResponseBody', replaces the stored body with the new one.
-putResponseBody :: ResponseBody m -> Handler s m ()
+putResponseBody :: ResponseBody m -> Handler m ()
 putResponseBody b = modify updateState
     where updateState rs = rs {stateBody = b}
 
 -- | Stores the provided 'ByteString' as the responseBody. This is a shortcut for
 -- creating a response body with a 'ResponseBuilder' and a bytestring 'Builder'.
-putResponseBS :: ByteString -> Handler s m ()
+putResponseBS :: ByteString -> Handler m ()
 putResponseBS bs = putResponseBody $ ResponseBuilder $ fromByteString bs
 
 -- | Immediately halts processing with the provided 'Status' code.
 -- The contents of the 'Handler''s response body will be streamed back to the client.
 -- This is a shortcut for constructing a 'Response' with 'getResponseHeaders' and 'getResponseBody'
 -- and passing that response to 'finishWith'.
-halt :: Status -> Handler m s a
+halt :: Status -> Handler m a
 halt status = finishWith =<< Response <$> pure status <*> getResponseHeaders <*> getResponseBody
 
 -- | Immediately halts processing and writes the provided 'Response' back to the client.
-finishWith :: Response m -> Handler s m a
+finishWith :: Response m -> Handler m a
 finishWith = Webmachine . left
 
 -- | The @#>@ operator provides syntactic sugar for the construction of association lists.
@@ -274,14 +255,14 @@ k #> v = tell [(k, v)]
 both :: Either a a -> a
 both = either id id
 
-eitherResponse :: Monad m => UTCTime -> HashMap Text Text -> [Text] -> Request m -> s -> Handler s m (Response m) -> m (Response m, Trace)
-eitherResponse reqDate reqParams dispatched req s resource = do
-    (e, trace) <- runWebmachine reqDate reqParams dispatched req s resource
+eitherResponse :: Monad m => UTCTime -> HashMap Text Text -> [Text] -> Request m -> Handler m (Response m) -> m (Response m, Trace)
+eitherResponse reqDate reqParams dispatched req resource = do
+    (e, trace) <- runWebmachine reqDate reqParams dispatched req resource
     return (both e, trace)
 
-runWebmachine :: Monad m => UTCTime -> HashMap Text Text -> [Text] -> Request m -> s -> Handler s m a -> m (Either (Response m) a, Trace)
-runWebmachine reqDate reqParams dispatched req s w = do
-    let startingState = ResponseState s [] Empty reqParams dispatched
+runWebmachine :: Monad m => UTCTime -> HashMap Text Text -> [Text] -> Request m -> Handler m a -> m (Either (Response m) a, Trace)
+runWebmachine reqDate reqParams dispatched req w = do
+    let startingState = ResponseState [] Empty reqParams dispatched
         requestReader = RequestReader reqDate req
     (e, _, t) <- runRWST (runEitherT (getWebmachine w)) requestReader startingState
     return (e, t)

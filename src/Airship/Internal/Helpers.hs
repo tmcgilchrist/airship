@@ -10,11 +10,12 @@ import           Control.Applicative
 #endif
 import           Data.ByteString           (ByteString)
 import qualified Data.ByteString.Lazy      as LazyBS
+import qualified Data.HashMap.Strict       as HM
 import           Data.Maybe
 #if __GLASGOW_HASKELL__ < 710
 import           Data.Monoid
 #endif
-import           Data.Text                 (Text, intercalate)
+import           Data.Text                 (Text, intercalate, unpack)
 import           Data.Text.Encoding
 import           Data.Time                 (getCurrentTime)
 import           Network.HTTP.Media
@@ -22,12 +23,22 @@ import qualified Network.HTTP.Types        as HTTP
 import qualified Network.Wai               as Wai
 import           Network.Wai.Parse
 import           System.Random
+import           Text.Read
 
+import           Airship.Headers
 import           Airship.Internal.Decision
 import           Airship.Internal.Route
 import           Airship.Resource
 import           Airship.Types
-import           Airship.Headers
+
+-- | Reads the parameter of the provided name and attempt to convert
+-- it to the desired 'Read'-implementing type. If the parameter is not
+-- found or cannot be read successfully, the provded handler is invoed
+-- (this may often be `halt status404`).
+readParam :: Read a => Text -> Handler s m a -> Handler s m a
+readParam p def = do
+    mStr <- fmap unpack <$> HM.lookup p <$> params
+    maybe def return (mStr >>= readMaybe)
 
 -- | Parse form data uploaded with a @Content-Type@ of either
 -- @www-form-urlencoded@ or @multipart/form-data@ to return a

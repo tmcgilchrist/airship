@@ -31,13 +31,15 @@ import           Airship.Internal.Route
 import           Airship.Resource
 import           Airship.Types
 
--- | Reads the parameter of the provided name and attempt to convert
--- it to the desired 'Read'-implementing type. If the parameter is not
--- found or cannot be read successfully, the provided handler is invoked
--- (this may often be `halt status404`).
+-- | As 'readParamMaybe', except this function eliminates the @Maybe@
+-- value by invoking the provided @Handler@ should reading the provided
+-- parameter fail.
 readParam :: Read a => Text -> Handler s m a -> Handler s m a
 readParam p def = readParamMaybe p >>= maybe def return
 
+-- | Reads the parameter of the provided name and attempt to convert
+-- it to the desired 'Read'-implementing type. If the parameter is not
+-- found or cannot be read successfully, @Nothing@ is returned.
 readParamMaybe :: Read a => Text -> Handler s m (Maybe a)
 readParamMaybe p = do
     mStr <- fmap unpack <$> HM.lookup p <$> params

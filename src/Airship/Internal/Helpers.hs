@@ -33,12 +33,15 @@ import           Airship.Types
 
 -- | Reads the parameter of the provided name and attempt to convert
 -- it to the desired 'Read'-implementing type. If the parameter is not
--- found or cannot be read successfully, the provded handler is invoed
+-- found or cannot be read successfully, the provided handler is invoked
 -- (this may often be `halt status404`).
 readParam :: Read a => Text -> Handler s m a -> Handler s m a
-readParam p def = do
+readParam p def = readParamMaybe p >>= maybe def return
+
+readParamMaybe :: Read a => Text -> Handler s m (Maybe a)
+readParamMaybe p = do
     mStr <- fmap unpack <$> HM.lookup p <$> params
-    maybe def return (mStr >>= readMaybe)
+    return $ mStr >>= readMaybe
 
 -- | Parse form data uploaded with a @Content-Type@ of either
 -- @www-form-urlencoded@ or @multipart/form-data@ to return a

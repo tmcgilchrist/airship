@@ -6,6 +6,7 @@ module Airship.Helpers
     , fromWaiRequest
     , resourceToWai
     , readParam
+    , readParamMaybe
     ) where
 
 import           Airship.Internal.Helpers

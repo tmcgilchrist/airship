@@ -38,8 +38,8 @@ data Resource s m =
                -- | An association list of 'MediaType's and 'Handler' actions that correspond to the accepted
                -- @Content-Type@ values that this resource can accept in a request body. If a @Content-Type@ header
                -- is present but not accounted for in 'contentTypesAccepted', processing will halt with @415 Unsupported Media Type@.
-               -- Otherwise, the corresponding 'Handler' action will be executed and processing will continue.
-             , contentTypesAccepted     :: Handler s m [(MediaType, Handler s m ())]
+               -- Otherwise, the corresponding 'Webmachine' action will be executed and processing will continue.
+             , contentTypesAccepted     :: Handler s m [(MediaType, Webmachine s m ())]
                -- | An association list of 'MediaType' values and 'ResponseBody' values. The response will be chosen
                -- by looking up the 'MediaType' that most closely matches the @Content-Type@ header. Should there be no match,
                -- processing will halt with @406 Not Acceptable@.

@@ -3,9 +3,7 @@
 module Main where
 
 import Airship
-import Control.Monad.Trans.State.Strict (State, evalState, get, put)
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as LB
+import Control.Concurrent
 import Data.ByteString (ByteString)
 
 import Test.Tasty
@@ -24,27 +22,16 @@ exampleTests :: TestTree
 exampleTests = testGroup "ExampleTests"
   [ bodyTest ]
 
-type RequestState = State [ByteString]
-
 bodyChunks :: [ByteString]
 bodyChunks = ["one", "two", "three", "four", "five"]
 
-nextBody :: RequestState ByteString
-nextBody = do
-    s <- get
-    if null s
-        then return BS.empty
-        else do
-            let (h:tl) = s
-            put tl
-            return h
+bodyChunksIO :: IO (IO ByteString)
+bodyChunksIO = do
+    v <- newMVar bodyChunks
+    return $ modifyMVar v (\l -> return $ case l of { [] -> ([], ""); h : t -> (t, h) })
 
 bodyTest :: TestTree
-bodyTest = testCase "entireRequestBody returns the body in the correct order" bodyTest'
-    where bodyTest' = evalState state bodyChunks @?= "onetwothreefourfive"
-          state :: RequestState LB.ByteString
-          state = entireRequestBody req
-          req = defRequest { requestBody = nextBody }
-          -- for some reason this type signature seems to be necessary
-          defRequest :: Request RequestState
-          defRequest = defaultRequest
+bodyTest = testCase "entireRequestBody returns the body in the correct order" $ do
+    nextBody <- bodyChunksIO
+    b <- entireRequestBody defaultRequest { requestBody = nextBody }
+    b @?= "onetwothreefourfive"

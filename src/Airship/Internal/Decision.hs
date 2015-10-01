@@ -71,16 +71,16 @@ hIfNoneMatch = "If-None-Match"
 ------------------------------------------------------------------------------
 
 data FlowState m = FlowState
-    { _contentType :: Maybe (MediaType, Webmachine m (ResponseBody m)) }
+    { _contentType :: Maybe (MediaType, Webmachine m ResponseBody) }
 
 type FlowStateT m a = StateT (FlowState m) (Webmachine m) a
 
-type Flow  m = Resource m -> FlowStateT m (Response m)
+type Flow m = Resource m -> FlowStateT m Response
 
 initFlowState :: FlowState m
 initFlowState = FlowState Nothing
 
-flow :: Monad m => Resource m -> Webmachine m (Response m)
+flow :: Monad m => Resource m -> Webmachine m Response
 flow r = evalStateT (b13 r) initFlowState
 
 trace :: Monad m => Text -> FlowStateT m ()

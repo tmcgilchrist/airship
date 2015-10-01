@@ -35,10 +35,10 @@ import           Network.Wai.Handler.Warp           (defaultSettings,
 -- Helpers
 -- ***************************************************************************
 
-getBody :: Handler m LB.ByteString
+getBody :: MonadIO m => Handler m LB.ByteString
 getBody = do
     req <- request
-    lift (entireRequestBody req)
+    liftIO (entireRequestBody req)
 
 readBody :: MonadIO m => Handler m Integer
 readBody = read . unpack <$> getBody

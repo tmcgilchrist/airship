@@ -35,8 +35,8 @@ import           Airship.Types
 -- @www-form-urlencoded@ or @multipart/form-data@ to return a
 -- list of parameter names and values and a list of uploaded
 -- files and their information.
-parseFormData :: Request IO -> IO ([Param], [File LazyBS.ByteString])
-parseFormData r = parseRequestBody lbsBackEnd (waiRequest r)
+parseFormData :: Request -> IO ([Param], [File LazyBS.ByteString])
+parseFormData r = parseRequestBody lbsBackEnd r
 
 -- | Returns @True@ if the request's @Content-Type@ header is one of the
 -- provided media types. If the @Content-Type@ header is not present,
@@ -60,26 +60,7 @@ redirectPermanently :: ByteString -> Handler m a
 redirectPermanently location =
     addResponseHeader ("Location", location) >> halt HTTP.status301
 
--- | Construct an Airship 'Request' from a WAI request.
-fromWaiRequest :: Wai.Request -> Request IO
-fromWaiRequest req = Request
-    { requestMethod = Wai.requestMethod req
-    , httpVersion = Wai.httpVersion req
-    , rawPathInfo = Wai.rawPathInfo req
-    , rawQueryString = Wai.rawQueryString req
-    , requestHeaders = Wai.requestHeaders req
-    , isSecure = Wai.isSecure req
-    , remoteHost = Wai.remoteHost req
-    , pathInfo = Wai.pathInfo req
-    , queryString = Wai.queryString req
-    , requestBody = Wai.requestBody req
-    , requestBodyLength = Wai.requestBodyLength req
-    , requestHeaderHost = Wai.requestHeaderHost req
-    , requestHeaderRange = Wai.requestHeaderRange req
-    , waiRequest = req
-    }
-
-toWaiResponse :: Response IO -> AirshipConfig -> ByteString -> ByteString -> Wai.Response
+toWaiResponse :: Response -> AirshipConfig -> ByteString -> ByteString -> Wai.Response
 toWaiResponse Response{..} cfg trace quip =
     case _responseBody of
         (ResponseBuilder b) ->
@@ -101,11 +82,10 @@ resourceToWai :: AirshipConfig -> RoutingSpec IO () -> Resource IO -> Wai.Applic
 resourceToWai cfg routes resource404 req respond = do
     let routeMapping = runRouter routes
         pInfo = Wai.pathInfo req
-        airshipReq = fromWaiRequest req
         (resource, (params', matched)) = route routeMapping pInfo resource404
     nowTime <- getCurrentTime
     quip <- getQuip
-    (response, trace) <- eitherResponse nowTime params' matched airshipReq (flow resource)
+    (response, trace) <- eitherResponse nowTime params' matched req (flow resource)
     respond (toWaiResponse response cfg (traceHeader trace) quip)
 
 getQuip :: IO ByteString

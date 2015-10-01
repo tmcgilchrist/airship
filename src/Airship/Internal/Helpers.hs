@@ -41,7 +41,7 @@ parseFormData r = parseRequestBody lbsBackEnd r
 -- | Returns @True@ if the request's @Content-Type@ header is one of the
 -- provided media types. If the @Content-Type@ header is not present,
 -- this function will return True.
-contentTypeMatches :: [MediaType] -> Handler m Bool
+contentTypeMatches :: Monad m => [MediaType] -> Webmachine m Bool
 contentTypeMatches validTypes = do
     headers <- requestHeaders <$> request
     let cType = lookup HTTP.hContentType headers
@@ -50,13 +50,13 @@ contentTypeMatches validTypes = do
         Just t  -> isJust $ matchAccept validTypes t
 
 -- | Issue an HTTP 302 (Found) response, with `location' as the destination.
-redirectTemporarily :: ByteString -> Handler m a
+redirectTemporarily :: Monad m => ByteString -> Webmachine m a
 redirectTemporarily location =
     addResponseHeader ("Location", location) >> halt HTTP.status302
 
 -- | Issue an HTTP 301 (Moved Permantently) response,
 -- with `location' as the destination.
-redirectPermanently :: ByteString -> Handler m a
+redirectPermanently :: Monad m => ByteString -> Webmachine m a
 redirectPermanently location =
     addResponseHeader ("Location", location) >> halt HTTP.status301
 

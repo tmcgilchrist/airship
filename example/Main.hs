@@ -35,15 +35,15 @@ import           Network.Wai.Handler.Warp           (defaultSettings,
 -- Helpers
 -- ***************************************************************************
 
-getBody :: MonadIO m => Handler m LB.ByteString
+getBody :: MonadIO m => Webmachine m LB.ByteString
 getBody = do
     req <- request
     liftIO (entireRequestBody req)
 
-readBody :: MonadIO m => Handler m Integer
+readBody :: MonadIO m => Webmachine m Integer
 readBody = read . unpack <$> getBody
 
-routingParam :: Text -> Handler m Text
+routingParam :: Monad m => Text -> Webmachine m Text
 routingParam t = do
     p <- params
     return (p HM.! t)
@@ -99,7 +99,7 @@ accountResource = defaultResource
     )]
     }
 
-postPutStates :: (MonadIO m, MonadState State m) => Handler m (Integer, Text, State)
+postPutStates :: (MonadIO m, MonadState State m) => Webmachine m (Integer, Text, State)
 postPutStates = do
     val <- readBody
     accountName <- routingParam "name"

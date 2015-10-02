@@ -1,4 +1,7 @@
-resolver: lts-2.17
+flags: {}
 packages:
 - ./
 - example
+extra-deps:
+- microlens-0.3.4.1
+resolver: lts-2.17

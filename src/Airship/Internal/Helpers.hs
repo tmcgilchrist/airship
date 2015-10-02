@@ -92,7 +92,9 @@ toWaiResponse Response{..} cfg trace quip =
             Wai.responseBuilder _responseStatus headers mempty
     where
         headers = traced ++ [("Airship-Quip", quip)] ++ _responseHeaders
-        traced  = if cfg^.includeTraceHeader then [("Airship-Trace", trace)] else []
+        traced  = if cfg^.includeTraceHeader == IncludeHeader
+                      then [("Airship-Trace", trace)]
+                      else []
 
 -- | Given a 'RoutingSpec', a 404 resource, and a user state @s@, construct a WAI 'Application'.
 resourceToWai :: AirshipConfig -> RoutingSpec s IO () -> Resource s IO -> s -> Wai.Application

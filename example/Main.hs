@@ -132,6 +132,3 @@ main = do
     let s = State mvar
     putStrLn "Listening on port 3000"
     runSettings settings (resourceToWai defaultAirshipConfig (hoist (flip evalStateT s) routes) resource404)
-
-hoist :: (forall a. m a -> n a) -> RoutingSpec m b -> RoutingSpec n b
-hoist = error "Not possible to implement yet. From MFunctor, but needs changes to airship internals"

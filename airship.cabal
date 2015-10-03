@@ -51,6 +51,7 @@ library
                       , microlens
                       , mime-types == 0.1.0.*
                       , monad-control >= 1.0
+                      , mmorph == 1.0.*
                       , mtl
                       , network
                       , old-locale

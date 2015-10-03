@@ -9,6 +9,7 @@ module Airship.Resource
     , PostResponse(..)
     , serverError
     , defaultResource
+    , hoistResource
     ) where
 
 import Airship.Types
@@ -28,6 +29,13 @@ data PostResponse m
     | PostCreateRedirect [Text] -- ^ Treat this request as a PUT, then redirect.
     | PostProcess (Handler m ()) -- ^ Process as a POST, but don't redirect.
     | PostProcessRedirect (Handler m ByteString) -- ^ Process and redirect.
+
+-- PostResponse can't be an MFunctor because it's missing a type hole
+hoistPostResponse :: Monad m => (forall a. m a -> n a) -> PostResponse m -> PostResponse n
+hoistPostResponse _ (PostCreate t) = PostCreate t
+hoistPostResponse _ (PostCreateRedirect t) = PostCreateRedirect t
+hoistPostResponse nat (PostProcess h) = PostProcess (hoist nat h)
+hoistPostResponse nat (PostProcessRedirect h) = PostProcessRedirect (hoist nat h)
 
 data Resource m =
     Resource { -- | Whether to allow HTTP POSTs to a missing resource. Default: false.
@@ -139,3 +147,34 @@ defaultResource = Resource { allowMissingPost       = return False
                            , uriTooLong             = return False
                            , validContentHeaders    = return True
                            }
+
+-- Resource can't be an MFunctor because it's missing a type hole
+hoistResource :: Monad m => (forall a. m a -> n a) -> Resource m -> Resource n
+hoistResource nat r =
+   Resource {
+     allowMissingPost       = hoist nat (allowMissingPost r)
+   , allowedMethods         = hoist nat (allowedMethods r)
+   , contentTypesAccepted   = fmap (fmap (\(mt, h) -> (mt, hoist nat h))) $ hoist nat (contentTypesAccepted r)
+   , contentTypesProvided   = fmap (fmap (\(mt, h) -> (mt, hoist nat h))) $ hoist nat (contentTypesProvided r)
+   , deleteCompleted        = hoist nat (deleteCompleted r)
+   , deleteResource         = hoist nat (deleteResource r)
+   , entityTooLarge         = hoist nat (entityTooLarge r)
+   , forbidden              = hoist nat (forbidden r)
+   , generateETag           = hoist nat (generateETag r)
+   , implemented            = hoist nat (implemented r)
+   , isAuthorized           = hoist nat (isAuthorized r)
+   , isConflict             = hoist nat (isConflict r)
+   , knownContentType       = hoist nat (knownContentType r)
+   , lastModified           = hoist nat (lastModified r)
+   , languageAvailable      = hoist nat (languageAvailable r)
+   , malformedRequest       = hoist nat (malformedRequest r)
+   , movedPermanently       = hoist nat (movedPermanently r)
+   , movedTemporarily       = hoist nat (movedTemporarily r)
+   , multipleChoices        = hoist nat (multipleChoices r)
+   , previouslyExisted      = hoist nat (previouslyExisted r)
+   , processPost            = fmap (hoistPostResponse nat) $ hoist nat (processPost r)
+   , resourceExists         = hoist nat (resourceExists r)
+   , serviceAvailable       = hoist nat (serviceAvailable r)
+   , uriTooLong             = hoist nat (uriTooLong r)
+   , validContentHeaders    = hoist nat (validContentHeaders r)
+   }

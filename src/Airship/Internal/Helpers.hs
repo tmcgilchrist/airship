@@ -18,6 +18,7 @@ import           Data.Monoid
 import           Data.Text                 (Text, intercalate, unpack)
 import           Data.Text.Encoding
 import           Data.Time                 (getCurrentTime)
+import           Lens.Micro                ((^.))
 import           Network.HTTP.Media
 import qualified Network.HTTP.Types        as HTTP
 import qualified Network.Wai               as Wai
@@ -25,6 +26,7 @@ import           Network.Wai.Parse
 import           System.Random
 import           Text.Read
 
+import           Airship.Config
 import           Airship.Headers
 import           Airship.Internal.Decision
 import           Airship.Internal.Route
@@ -93,8 +95,8 @@ fromWaiRequest req = Request
     , waiRequest = req
     }
 
-toWaiResponse :: Response IO -> ByteString -> ByteString -> Wai.Response
-toWaiResponse Response{..} trace quip =
+toWaiResponse :: Response IO -> AirshipConfig -> ByteString -> ByteString -> Wai.Response
+toWaiResponse Response{..} cfg trace quip =
     case _responseBody of
         (ResponseBuilder b) ->
             Wai.responseBuilder _responseStatus headers b
@@ -104,11 +106,15 @@ toWaiResponse Response{..} trace quip =
             Wai.responseStream _responseStatus headers streamer
         Empty ->
             Wai.responseBuilder _responseStatus headers mempty
-    where headers = _responseHeaders ++ [("Airship-Trace", trace), ("Airship-Quip", quip)]
+    where
+        headers = traced ++ [("Airship-Quip", quip)] ++ _responseHeaders
+        traced  = if cfg^.includeTraceHeader == IncludeHeader
+                      then [("Airship-Trace", trace)]
+                      else []
 
 -- | Given a 'RoutingSpec', a 404 resource, and a user state @s@, construct a WAI 'Application'.
-resourceToWai :: RoutingSpec s IO () -> Resource s IO -> s -> Wai.Application
-resourceToWai routes resource404 s req respond = do
+resourceToWai :: AirshipConfig -> RoutingSpec s IO () -> Resource s IO -> s -> Wai.Application
+resourceToWai cfg routes resource404 s req respond = do
     let routeMapping = runRouter routes
         pInfo = Wai.pathInfo req
         airshipReq = fromWaiRequest req
@@ -116,8 +122,7 @@ resourceToWai routes resource404 s req respond = do
     nowTime <- getCurrentTime
     quip <- getQuip
     (response, trace) <- eitherResponse nowTime params' matched airshipReq s (flow resource)
-    let traceHeaderValue = traceHeader trace
-    respond (toWaiResponse response traceHeaderValue quip)
+    respond (toWaiResponse response cfg (traceHeader trace) quip)
 
 getQuip :: IO ByteString
 getQuip = do

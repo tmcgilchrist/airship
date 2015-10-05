@@ -1,14 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes        #-}
 
 module Airship
-  ( module Airship.Resource
+  ( module Airship.Config
+  , module Airship.Resource
   , module Airship.Headers
   , module Airship.Helpers
   , module Airship.Route
   , module Airship.Types
   ) where
 
+import           Airship.Config
 import           Airship.Headers
 import           Airship.Helpers
 import           Airship.Resource

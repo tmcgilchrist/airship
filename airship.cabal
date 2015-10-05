@@ -19,6 +19,7 @@ library
   hs-source-dirs: src
   ghc-options:  -Wall
   exposed-modules:   Airship
+                   , Airship.Config
                    , Airship.Headers
                    , Airship.Helpers
                    , Airship.Types
@@ -47,6 +48,7 @@ library
                       , http-media
                       , http-types == 0.8.*
                       , lifted-base == 0.2.*
+                      , microlens
                       , mime-types == 0.1.0.*
                       , monad-control >= 1.0
                       , mtl

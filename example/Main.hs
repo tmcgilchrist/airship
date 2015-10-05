@@ -1,36 +1,35 @@
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE CPP               #-}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes        #-}
 
 module Main where
 
 import           Airship
-import           Airship.Resource.Static (StaticOptions(..), staticResource)
+import           Airship.Resource.Static            (StaticOptions (..),
+                                                     staticResource)
 
 import           Blaze.ByteString.Builder.Html.Utf8 (fromHtmlEscapedText)
 
 #if __GLASGOW_HASKELL__ < 710
-import           Control.Applicative ((<$>))
+import           Control.Applicative                ((<$>))
 #endif
 import           Control.Concurrent.MVar
-import           Control.Monad.Trans (liftIO)
+import           Control.Monad.Trans                (liftIO)
 
-import           Data.HashMap.Strict (HashMap)
-import qualified Data.HashMap.Strict as HM
-import qualified Data.ByteString.Lazy as LB
-import           Data.ByteString.Lazy.Char8 (unpack)
-import           Data.Maybe (fromMaybe)
-import           Data.Monoid ((<>))
-import           Data.Text(Text, pack)
+import qualified Data.ByteString.Lazy               as LB
+import           Data.ByteString.Lazy.Char8         (unpack)
+import           Data.HashMap.Strict                (HashMap)
+import qualified Data.HashMap.Strict                as HM
+import           Data.Maybe                         (fromMaybe)
+import           Data.Monoid                        ((<>))
+import           Data.Text                          (Text, pack)
 import           Data.Time.Clock
 
-import qualified Network.HTTP.Types as HTTP
-import           Network.Wai.Handler.Warp ( runSettings
-                                          , defaultSettings
-                                          , setPort
-                                          , setHost
-                                          )
+import qualified Network.HTTP.Types                 as HTTP
+import           Network.Wai.Handler.Warp           (defaultSettings,
+                                                     runSettings, setHost,
+                                                     setPort)
 
 -- ***************************************************************************
 -- Helpers
@@ -132,4 +131,4 @@ main = do
     mvar <- newMVar HM.empty
     let s = State mvar
     putStrLn "Listening on port 3000"
-    runSettings settings (resourceToWai routes resource404 s)
+    runSettings settings (resourceToWai defaultAirshipConfig routes resource404 s)

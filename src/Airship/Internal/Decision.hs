@@ -50,27 +50,27 @@ import qualified Network.HTTP.Types.Header as HTTP
 -- tree
 ------------------------------------------------------------------------------
 
-data FlowState s m = FlowState
-    { _contentType :: Maybe (MediaType, Webmachine s m (ResponseBody m)) }
+data FlowState m = FlowState
+    { _contentType :: Maybe (MediaType, Webmachine m ResponseBody) }
 
-type FlowStateT s m a = StateT (FlowState s m) (Webmachine s m) a
+type FlowStateT m a = StateT (FlowState m) (Webmachine m) a
 
-type Flow s m = Resource s m -> FlowStateT s m (Response m)
+type Flow m = Resource m -> FlowStateT m Response
 
-initFlowState :: FlowState s m
+initFlowState :: FlowState m
 initFlowState = FlowState Nothing
 
-flow :: Monad m => Resource s m -> Webmachine s m (Response m)
+flow :: Monad m => Resource m -> Webmachine m Response
 flow r = evalStateT (b13 r) initFlowState
 
-trace :: Monad m => Text -> FlowStateT s m ()
+trace :: Monad m => Text -> FlowStateT m ()
 trace t = lift $ tell [t]
 
 ------------------------------------------------------------------------------
 -- Decision Helpers
 ------------------------------------------------------------------------------
 
-negotiateContentTypesAccepted :: Monad m => Resource s m -> FlowStateT s m ()
+negotiateContentTypesAccepted :: Monad m => Resource m -> FlowStateT m ()
 negotiateContentTypesAccepted Resource{..} = do
     req <- lift request
     accepted <- lift contentTypesAccepted
@@ -82,13 +82,13 @@ negotiateContentTypesAccepted Resource{..} = do
         (Just process) -> lift process
         Nothing -> lift $ halt HTTP.status415
 
-appendRequestPath :: Monad m => [Text] -> Webmachine s m ByteString
+appendRequestPath :: Monad m => [Text] -> Webmachine m ByteString
 appendRequestPath ts = do
     currentPath <- pathInfo <$> request
     return $ toByteString (HTTP.encodePathSegments (currentPath ++ ts))
 
 requestHeaderDate :: Monad m => HTTP.HeaderName ->
-                                Webmachine s m (Maybe UTCTime)
+                                Webmachine m (Maybe UTCTime)
 requestHeaderDate headerName = do
     req <- request
     let reqHeaders = requestHeaders req
@@ -96,7 +96,7 @@ requestHeaderDate headerName = do
         parsedDate = dateHeader >>= parseRfc1123Date
     return parsedDate
 
-writeCacheTags :: Monad m => Resource s m -> FlowStateT s m ()
+writeCacheTags :: Monad m => Resource m -> FlowStateT m ()
 writeCacheTags Resource{..} = lift $ do
     etag <- generateETag
     case etag of
@@ -111,21 +111,21 @@ writeCacheTags Resource{..} = lift $ do
 -- Type definitions for all decision nodes
 ------------------------------------------------------------------------------
 
-b13, b12, b11, b10, b09, b08, b07, b06, b05, b04, b03 :: Monad m => Flow s m
-c04, c03 :: Monad m => Flow s m
-d05, d04 :: Monad m => Flow s m
-e06, e05 :: Monad m => Flow s m
-f07, f06 :: Monad m => Flow s m
-g11, g09, g08, g07 :: Monad m => Flow s m
-h12, h11, h10, h07 :: Monad m => Flow s m
-i13, i12, i07, i04 :: Monad m => Flow s m
-j18 :: Monad m => Flow s m
-k13, k07, k05 :: Monad m => Flow s m
-l17, l15, l14, l13, l07, l05 :: Monad m => Flow s m
-m20, m16, m07, m05 :: Monad m => Flow s m
-n16, n11, n05 :: Monad m => Flow s m
-o20, o18, o16, o14 :: Monad m => Flow s m
-p11, p03 :: Monad m => Flow s m
+b13, b12, b11, b10, b09, b08, b07, b06, b05, b04, b03 :: Monad m => Flow  m
+c04, c03 :: Monad m => Flow  m
+d05, d04 :: Monad m => Flow  m
+e06, e05 :: Monad m => Flow  m
+f07, f06 :: Monad m => Flow  m
+g11, g09, g08, g07 :: Monad m => Flow  m
+h12, h11, h10, h07 :: Monad m => Flow  m
+i13, i12, i07, i04 :: Monad m => Flow  m
+j18 :: Monad m => Flow  m
+k13, k07, k05 :: Monad m => Flow  m
+l17, l15, l14, l13, l07, l05 :: Monad m => Flow  m
+m20, m16, m07, m05 :: Monad m => Flow  m
+n16, n11, n05 :: Monad m => Flow  m
+o20, o18, o16, o14 :: Monad m => Flow  m
+p11, p03 :: Monad m => Flow  m
 
 ------------------------------------------------------------------------------
 -- B column
@@ -605,13 +605,13 @@ n16 r = do
 
 n11 r@Resource{..} = trace "n11" >> lift processPost >>= flip processPostAction r
 
-create :: Monad m => [Text] -> Resource s m -> FlowStateT s m ()
+create :: Monad m => [Text] -> Resource m -> FlowStateT m ()
 create ts r = do
     loc <- lift (appendRequestPath ts)
     lift (addResponseHeader ("Location", loc))
     negotiateContentTypesAccepted r
 
-processPostAction :: Monad m => PostResponse s m -> Flow s m
+processPostAction :: Monad m => PostResponse m -> Flow  m
 processPostAction (PostCreate ts) r = do
     create ts r
     p11 r

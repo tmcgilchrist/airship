@@ -15,7 +15,9 @@ import Data.HashMap.Strict (HashMap, insert)
 #if __GLASGOW_HASKELL__ < 710
 import           Control.Applicative
 #endif
-import Control.Monad.Writer (Writer, execWriter)
+import Control.Monad.Identity
+import Control.Monad.Morph
+import Control.Monad.Writer (Writer, WriterT (..), execWriter, runWriterT)
 import Control.Monad.Writer.Class (MonadWriter)
 
 import Data.String (IsString, fromString)
@@ -32,7 +34,7 @@ data BoundOrUnbound = Bound Text
 instance IsString Route where
     fromString s = Route [Bound (fromString s)]
 
-runRouter :: RoutingSpec s m a -> [(Route, Resource s m)]
+runRouter :: RoutingSpec m a -> [(Route, Resource m)]
 runRouter routes = execWriter (getRouter routes)
 
 -- | @a '</>' b@ separates the path components @a@ and @b@ with a slash.
@@ -68,7 +70,7 @@ star = Route [RestUnbound]
 -- | Represents a fully-specified set of routes that map paths (represented as 'Route's) to 'Resource's. 'RoutingSpec's are declared with do-notation, to wit:
 --
 -- @
---    myRoutes :: RoutingSpec MyState IO ()
+--    myRoutes :: RoutingSpec IO ()
 --    myRoutes = do
 --      root                                 #> myRootResource
 --      "blog" '</>' var "date" '</>' var "post" #> blogPostResource
@@ -76,8 +78,13 @@ star = Route [RestUnbound]
 --      "anything" '</>' star                  #> wildcardResource
 -- @
 --
-newtype RoutingSpec s m a = RoutingSpec { getRouter :: Writer [(Route, Resource s m)] a }
-    deriving (Functor, Applicative, Monad, MonadWriter [(Route, Resource s m)])
+newtype RoutingSpec m a = RoutingSpec { getRouter :: Writer [(Route, Resource m)] a }
+    deriving (Functor, Applicative, Monad, MonadWriter [(Route, Resource m)])
+
+instance MFunctor RoutingSpec where
+  hoist nat (RoutingSpec r) = RoutingSpec $
+    let Identity (a, w) = (runWriterT r)
+    in WriterT . Identity . (,) a $ fmap (\(ro, re) -> (ro, hoistResource nat re)) w
 
 
 route :: [(Route, a)] -> [Text] -> a -> (a, (HashMap Text Text, [Text]))

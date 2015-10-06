@@ -12,7 +12,6 @@
 module Airship.Types
     ( ETag(..)
     , Webmachine
-    , Handler
     , Request(..)
     , Response(..)
     , ResponseState(..)
@@ -179,18 +178,18 @@ putResponseBody b = modify updateState
 
 -- | Stores the provided 'ByteString' as the responseBody. This is a shortcut for
 -- creating a response body with a 'ResponseBuilder' and a bytestring 'Builder'.
-putResponseBS :: ByteString -> Handler m ()
+putResponseBS :: Monad m => ByteString -> Webmachine m ()
 putResponseBS bs = putResponseBody $ ResponseBuilder $ fromByteString bs
 
 -- | Immediately halts processing with the provided 'Status' code.
--- The contents of the 'Handler''s response body will be streamed back to the client.
+-- The contents of the 'Webmachine''s response body will be streamed back to the client.
 -- This is a shortcut for constructing a 'Response' with 'getResponseHeaders' and 'getResponseBody'
 -- and passing that response to 'finishWith'.
-halt :: Status -> Handler m a
-halt status = finishWith =<< Response <$> pure status <*> getResponseHeaders <*> getResponseBody
+halt :: Monad m => Status -> Webmachine m a
+halt status = finishWith =<< Response <$> return status <*> getResponseHeaders <*> getResponseBody
 
 -- | Immediately halts processing and writes the provided 'Response' back to the client.
-finishWith :: Response -> Handler m a
+finishWith :: Monad m => Response -> Webmachine m a
 finishWith = Webmachine . left
 
 -- | The @#>@ operator provides syntactic sugar for the construction of association lists.
@@ -218,12 +217,12 @@ k #> v = tell [(k, v)]
 both :: Either a a -> a
 both = either id id
 
-eitherResponse :: Monad m => UTCTime -> HashMap Text Text -> [Text] -> Request -> Handler m Response -> m (Response, Trace)
+eitherResponse :: Monad m => UTCTime -> HashMap Text Text -> [Text] -> Request -> Webmachine m Response -> m (Response, Trace)
 eitherResponse reqDate reqParams dispatched req resource = do
     (e, trace) <- runWebmachine reqDate reqParams dispatched req resource
     return (both e, trace)
 
-runWebmachine :: Monad m => UTCTime -> HashMap Text Text -> [Text] -> Request -> Handler m a -> m (Either (Response) a, Trace)
+runWebmachine :: Monad m => UTCTime -> HashMap Text Text -> [Text] -> Request -> Webmachine m a -> m (Either (Response) a, Trace)
 runWebmachine reqDate reqParams dispatched req w = do
     let startingState = ResponseState [] Empty reqParams dispatched
         requestReader = RequestReader reqDate req

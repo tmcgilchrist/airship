@@ -43,27 +43,7 @@ import           Data.ByteString                  (ByteString, intercalate)
 
 import           Network.HTTP.Media
 import qualified Network.HTTP.Types as HTTP
-
-------------------------------------------------------------------------------
--- HTTP Headers
--- These are headers not defined for us already in
--- Network.HTTP.Types
-------------------------------------------------------------------------------
-
-hAcceptCharset :: HTTP.HeaderName
-hAcceptCharset = "Accept-Charset"
-
-hAcceptEncoding :: HTTP.HeaderName
-hAcceptEncoding = "Accept-Encoding"
-
-hIfMatch :: HTTP.HeaderName
-hIfMatch = "If-Match"
-
-hIfUnmodifiedSince :: HTTP.HeaderName
-hIfUnmodifiedSince = "If-Unmodified-Since"
-
-hIfNoneMatch :: HTTP.HeaderName
-hIfNoneMatch = "If-None-Match"
+import qualified Network.HTTP.Types.Header as HTTP
 
 ------------------------------------------------------------------------------
 -- FlowState: StateT used for recording information as we walk the decision
@@ -315,7 +295,7 @@ e05 r@Resource{..} = do
     trace "e05"
     req <- lift request
     let reqHeaders = requestHeaders req
-    case lookup hAcceptCharset reqHeaders of
+    case lookup HTTP.hAcceptCharset reqHeaders of
         (Just _h) ->
             e06 r
         Nothing ->
@@ -334,7 +314,7 @@ f06 r@Resource{..} = do
     trace "f06"
     req <- lift request
     let reqHeaders = requestHeaders req
-    case lookup hAcceptEncoding reqHeaders of
+    case lookup HTTP.hAcceptEncoding reqHeaders of
         (Just _h) ->
             f07 r
         Nothing ->
@@ -348,7 +328,7 @@ g11 r@Resource{..} = do
     trace "g11"
     req <- lift request
     let reqHeaders = requestHeaders req
-        ifMatch = fromJust (lookup hIfMatch reqHeaders)
+        ifMatch = fromJust (lookup HTTP.hIfMatch reqHeaders)
         etags = parseEtagList ifMatch
     if null etags
         then lift $ halt HTTP.status412
@@ -358,7 +338,7 @@ g09 r@Resource{..} = do
     trace "g09"
     req <- lift request
     let reqHeaders = requestHeaders req
-    case fromJust (lookup hIfMatch reqHeaders) of
+    case fromJust (lookup HTTP.hIfMatch reqHeaders) of
         -- TODO: should we be stripping whitespace here?
         "*" ->
             h10 r
@@ -369,7 +349,7 @@ g08 r@Resource{..} = do
     trace "g08"
     req <- lift request
     let reqHeaders = requestHeaders req
-    case lookup hIfMatch reqHeaders of
+    case lookup HTTP.hIfMatch reqHeaders of
         (Just _h) ->
             g09 r
         Nothing ->
@@ -390,7 +370,7 @@ g07 r@Resource{..} = do
 h12 r@Resource{..} = do
     trace "h12"
     modified <- lift lastModified
-    parsedDate <- lift $ requestHeaderDate hIfUnmodifiedSince
+    parsedDate <- lift $ requestHeaderDate HTTP.hIfUnmodifiedSince
     let maybeGreater = do
             lastM <- modified
             headerDate <- parsedDate
@@ -401,7 +381,7 @@ h12 r@Resource{..} = do
 
 h11 r@Resource{..} = do
     trace "h11"
-    parsedDate <- lift $ requestHeaderDate hIfUnmodifiedSince
+    parsedDate <- lift $ requestHeaderDate HTTP.hIfUnmodifiedSince
     if isJust parsedDate
         then h12 r
         else i12 r
@@ -410,7 +390,7 @@ h10 r@Resource{..} = do
     trace "h10"
     req <- lift request
     let reqHeaders = requestHeaders req
-    case lookup hIfUnmodifiedSince reqHeaders of
+    case lookup HTTP.hIfUnmodifiedSince reqHeaders of
         (Just _h) ->
             h11 r
         Nothing ->
@@ -420,7 +400,7 @@ h07 r@Resource {..} = do
     trace "h07"
     req <- lift request
     let reqHeaders = requestHeaders req
-    case lookup hIfMatch reqHeaders of
+    case lookup HTTP.hIfMatch reqHeaders of
         -- TODO: should we be stripping whitespace here?
         (Just "*") ->
             lift $ halt HTTP.status412
@@ -435,7 +415,7 @@ i13 r@Resource{..} = do
     trace "i13"
     req <- lift request
     let reqHeaders = requestHeaders req
-    case fromJust (lookup hIfNoneMatch reqHeaders) of
+    case fromJust (lookup HTTP.hIfNoneMatch reqHeaders) of
         -- TODO: should we be stripping whitespace here?
         "*" ->
             j18 r
@@ -446,7 +426,7 @@ i12 r@Resource{..} = do
     trace "i12"
     req <- lift request
     let reqHeaders = requestHeaders req
-    case lookup hIfNoneMatch reqHeaders of
+    case lookup HTTP.hIfNoneMatch reqHeaders of
         (Just _h) ->
             i13 r
         Nothing ->
@@ -491,7 +471,7 @@ k13 r@Resource{..} = do
     trace "k13"
     req <- lift request
     let reqHeaders = requestHeaders req
-        ifNoneMatch = fromJust (lookup hIfNoneMatch reqHeaders)
+        ifNoneMatch = fromJust (lookup HTTP.hIfNoneMatch reqHeaders)
         etags = parseEtagList ifNoneMatch
     if null etags
         then l13 r

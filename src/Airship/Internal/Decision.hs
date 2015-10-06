@@ -36,7 +36,7 @@ import           Control.Monad.Trans.State.Strict (StateT(..), evalStateT,
 import           Control.Monad.Writer.Class (tell)
 
 import           Blaze.ByteString.Builder (toByteString)
-import           Data.Maybe (fromJust, isJust)
+import           Data.Maybe (isJust)
 import           Data.Text (Text)
 import           Data.Time.Clock (UTCTime)
 import           Data.ByteString                  (ByteString, intercalate)
@@ -65,6 +65,13 @@ flow r = evalStateT (b13 r) initFlowState
 
 trace :: Monad m => Text -> FlowStateT m ()
 trace t = lift $ tell [t]
+
+------------------------------------------------------------------------------
+-- Header value data newtypes
+------------------------------------------------------------------------------
+
+newtype IfMatch = IfMatch ByteString
+newtype IfNoneMatch = IfNoneMatch ByteString
 
 ------------------------------------------------------------------------------
 -- Decision Helpers
@@ -116,11 +123,14 @@ c04, c03 :: Monad m => Flow  m
 d05, d04 :: Monad m => Flow  m
 e06, e05 :: Monad m => Flow  m
 f07, f06 :: Monad m => Flow  m
-g11, g09, g08, g07 :: Monad m => Flow  m
+g11, g09 :: Monad m => IfMatch -> Flow m
+g08, g07 :: Monad m => Flow  m
 h12, h11, h10, h07 :: Monad m => Flow  m
-i13, i12, i07, i04 :: Monad m => Flow  m
+i13 :: Monad m => IfNoneMatch -> Flow m
+i12, i07, i04 :: Monad m => Flow  m
 j18 :: Monad m => Flow  m
-k13, k07, k05 :: Monad m => Flow  m
+k13 :: Monad m => IfNoneMatch -> Flow m
+k07, k05 :: Monad m => Flow  m
 l17, l15, l14, l13, l07, l05 :: Monad m => Flow  m
 m20, m16, m07, m05 :: Monad m => Flow  m
 n16, n11, n05 :: Monad m => Flow  m
@@ -324,34 +334,29 @@ f06 r@Resource{..} = do
 -- G column
 ------------------------------------------------------------------------------
 
-g11 r@Resource{..} = do
+g11 (IfMatch ifMatch) r@Resource{..} = do
     trace "g11"
-    req <- lift request
-    let reqHeaders = requestHeaders req
-        ifMatch = fromJust (lookup HTTP.hIfMatch reqHeaders)
-        etags = parseEtagList ifMatch
+    let etags = parseEtagList ifMatch
     if null etags
         then lift $ halt HTTP.status412
         else h10 r
 
-g09 r@Resource{..} = do
+g09 ifMatch r@Resource{..} = do
     trace "g09"
-    req <- lift request
-    let reqHeaders = requestHeaders req
-    case fromJust (lookup HTTP.hIfMatch reqHeaders) of
+    case ifMatch of
         -- TODO: should we be stripping whitespace here?
-        "*" ->
+        (IfMatch "*") ->
             h10 r
         _ ->
-            g11 r
+            g11 ifMatch r
 
 g08 r@Resource{..} = do
     trace "g08"
     req <- lift request
     let reqHeaders = requestHeaders req
-    case lookup HTTP.hIfMatch reqHeaders of
-        (Just _h) ->
-            g09 r
+    case IfMatch <$> lookup HTTP.hIfMatch reqHeaders of
+        (Just h) ->
+            g09 h r
         Nothing ->
             h10 r
 
@@ -411,24 +416,22 @@ h07 r@Resource {..} = do
 -- I column
 ------------------------------------------------------------------------------
 
-i13 r@Resource{..} = do
+i13 ifNoneMatch r@Resource{..} = do
     trace "i13"
-    req <- lift request
-    let reqHeaders = requestHeaders req
-    case fromJust (lookup HTTP.hIfNoneMatch reqHeaders) of
+    case ifNoneMatch of
         -- TODO: should we be stripping whitespace here?
-        "*" ->
+        (IfNoneMatch "*") ->
             j18 r
         _ ->
-            k13 r
+            k13 ifNoneMatch r
 
 i12 r@Resource{..} = do
     trace "i12"
     req <- lift request
     let reqHeaders = requestHeaders req
-    case lookup HTTP.hIfNoneMatch reqHeaders of
-        (Just _h) ->
-            i13 r
+    case IfNoneMatch <$> lookup HTTP.hIfNoneMatch reqHeaders of
+        (Just h) ->
+            i13 h r
         Nothing ->
             l13 r
 
@@ -467,12 +470,9 @@ j18 _ = do
 -- K column
 ------------------------------------------------------------------------------
 
-k13 r@Resource{..} = do
+k13 (IfNoneMatch ifNoneMatch) r@Resource{..} = do
     trace "k13"
-    req <- lift request
-    let reqHeaders = requestHeaders req
-        ifNoneMatch = fromJust (lookup HTTP.hIfNoneMatch reqHeaders)
-        etags = parseEtagList ifNoneMatch
+    let etags = parseEtagList ifNoneMatch
     if null etags
         then l13 r
         else j18 r

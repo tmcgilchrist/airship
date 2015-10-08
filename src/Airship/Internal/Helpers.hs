@@ -8,6 +8,7 @@ module Airship.Internal.Helpers where
 #if __GLASGOW_HASKELL__ < 710
 import           Control.Applicative
 #endif
+import           Control.Monad.IO.Class    (MonadIO, liftIO)
 import           Data.ByteString           (ByteString)
 import qualified Data.ByteString.Lazy      as LazyBS
 import           Data.Maybe
@@ -83,14 +84,14 @@ resourceToWai cfg routes resource404 =
   resourceToWaiT cfg id routes resource404
 
 -- | Given a 'RoutingSpec', a 404 resource, and a user state @s@, construct a WAI 'Application'.
-resourceToWaiT :: Monad m => AirshipConfig -> (forall a. m a -> IO a) -> RoutingSpec m () -> Resource m -> Wai.Application
+resourceToWaiT :: MonadIO m => AirshipConfig -> (forall a. m a -> IO a) -> RoutingSpec m () -> Resource m -> Wai.Application
 resourceToWaiT cfg run routes resource404 req respond = do
     let routeMapping = runRouter routes
         pInfo = Wai.pathInfo req
         (resource, (params', matched)) = route routeMapping pInfo resource404
     nowTime <- getCurrentTime
     quip <- getQuip
-    (response, trace) <- run $ eitherResponse nowTime params' matched req (flow resource)
+    (response, trace) <- run $ eitherResponse nowTime params' matched req (liftIO $ requestBody req) (flow resource)
     respond (toWaiResponse response cfg (traceHeader trace) quip)
 
 getQuip :: IO ByteString

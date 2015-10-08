@@ -18,6 +18,7 @@ module Airship.Types
     , ResponseBody(..)
     , defaultRequest
     , entireRequestBody
+    , entireRequestBody'
     , etagToByteString
     , eitherResponse
     , escapedResponse
@@ -45,7 +46,7 @@ import           Control.Applicative
 #endif
 import Control.Monad (liftM)
 import Control.Monad.Base (MonadBase)
-import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Morph
 import Control.Monad.Reader.Class (MonadReader, ask)
 import Control.Monad.State.Class (MonadState, get, modify)
@@ -66,18 +67,23 @@ import Network.HTTP.Types ( ResponseHeaders
 import qualified Network.Wai as Wai
 import           Network.Wai (Request (..), defaultRequest)
 
-
 -- | Reads the entirety of the request body in a single string.
 -- This turns the chunks obtained from repeated invocations of 'requestBody' into a lazy 'ByteString'.
-entireRequestBody :: MonadIO m => Request -> m LB.ByteString
-entireRequestBody req = liftIO (requestBody req) >>= strictRequestBody' LB.empty
+entireRequestBody :: Monad m => Webmachine m LB.ByteString
+entireRequestBody =
+  ask >>= lift . entireRequestBody' . _requestBody
+
+entireRequestBody' :: Monad m => m ByteString -> m LB.ByteString
+entireRequestBody' requestBody' =
+  requestBody' >>= strictRequestBody' LB.empty
     where strictRequestBody' acc prev
             | BS.null prev = return acc
-            | otherwise = liftIO (requestBody req) >>= strictRequestBody' (acc <> LB.fromStrict prev)
+            | otherwise = requestBody' >>= strictRequestBody' (acc <> LB.fromStrict prev)
 
-data RequestReader = RequestReader { _now :: UTCTime
-                                   , _request :: Request
-                                   }
+data RequestReader m = RequestReader { _now :: UTCTime
+                                     , _request :: Request
+                                     , _requestBody :: m ByteString
+                                     }
 
 data ETag = Strong ByteString
           | Weak ByteString
@@ -89,7 +95,8 @@ etagToByteString :: ETag -> ByteString
 etagToByteString (Strong bs) = "\"" <> bs <> "\""
 etagToByteString (Weak bs) = "W/\"" <> bs <> "\""
 
--- | Basically Wai's unexported 'Response' type.
+-- | Basically Wai's unexported 'Response' type, but generalized to any monad,
+-- 'm'.
 data ResponseBody
     = ResponseFile FilePath (Maybe Wai.FilePart)
     | ResponseBuilder Builder
@@ -115,9 +122,9 @@ data ResponseState = ResponseState { stateHeaders   :: ResponseHeaders
 type Trace = [Text]
 
 newtype Webmachine m a =
-    Webmachine { getWebmachine :: EitherT Response (RWST RequestReader Trace ResponseState m) a }
+    Webmachine { getWebmachine :: EitherT Response (RWST (RequestReader m) Trace ResponseState m) a }
         deriving (Functor, Applicative, Monad, MonadIO, MonadBase b,
-                  MonadReader RequestReader,
+                  MonadReader (RequestReader m),
                   MonadWriter Trace,
                   MonadState ResponseState)
 
@@ -125,7 +132,7 @@ instance MonadTrans Webmachine where
     lift = Webmachine . EitherT . (>>= return . Right) . lift
 
 newtype StMWebmachine m a = StMWebmachine {
-      unStMWebmachine :: StM (EitherT Response (RWST RequestReader Trace ResponseState m)) a
+      unStMWebmachine :: StM (EitherT Response (RWST (RequestReader m) Trace ResponseState m)) a
     }
 
 instance MonadBaseControl b m => MonadBaseControl b (Webmachine m) where
@@ -212,14 +219,14 @@ k #> v = tell [(k, v)]
 both :: Either a a -> a
 both = either id id
 
-eitherResponse :: Monad m => UTCTime -> HashMap Text Text -> [Text] -> Request -> Webmachine m Response -> m (Response, Trace)
-eitherResponse reqDate reqParams dispatched req resource = do
-    (e, trace) <- runWebmachine reqDate reqParams dispatched req resource
+eitherResponse :: Monad m => UTCTime -> HashMap Text Text -> [Text] -> Request -> m ByteString -> Webmachine m Response -> m (Response, Trace)
+eitherResponse reqDate reqParams dispatched req body resource = do
+    (e, trace) <- runWebmachine reqDate reqParams dispatched req body resource
     return (both e, trace)
 
-runWebmachine :: Monad m => UTCTime -> HashMap Text Text -> [Text] -> Request -> Webmachine m a -> m (Either (Response) a, Trace)
-runWebmachine reqDate reqParams dispatched req w = do
+runWebmachine :: Monad m => UTCTime -> HashMap Text Text -> [Text] -> Request -> m ByteString -> Webmachine m a -> m (Either Response a, Trace)
+runWebmachine reqDate reqParams dispatched req body w = do
     let startingState = ResponseState [] Empty reqParams dispatched
-        requestReader = RequestReader reqDate req
+        requestReader = RequestReader reqDate req body
     (e, _, t) <- runRWST (runEitherT (getWebmachine w)) requestReader startingState
     return (e, t)

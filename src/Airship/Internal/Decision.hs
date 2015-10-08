@@ -51,16 +51,16 @@ import qualified Network.HTTP.Types.Header as HTTP
 ------------------------------------------------------------------------------
 
 data FlowState m = FlowState
-    { _contentType :: Maybe (MediaType, Webmachine m ResponseBody) }
+    { _contentType :: Maybe (MediaType, Webmachine m (ResponseBody m)) }
 
 type FlowStateT m a = StateT (FlowState m) (Webmachine m) a
 
-type Flow m = Resource m -> FlowStateT m Response
+type Flow  m = Resource m -> FlowStateT m (Response m)
 
 initFlowState :: FlowState m
 initFlowState = FlowState Nothing
 
-flow :: Monad m => Resource m -> Webmachine m Response
+flow :: Monad m => Resource m -> Webmachine m (Response m)
 flow r = evalStateT (b13 r) initFlowState
 
 trace :: Monad m => Text -> FlowStateT m ()

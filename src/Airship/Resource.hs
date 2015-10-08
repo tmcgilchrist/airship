@@ -43,7 +43,7 @@ data Resource m =
                -- | An association list of 'MediaType' values and 'ResponseBody' values. The response will be chosen
                -- by looking up the 'MediaType' that most closely matches the @Content-Type@ header. Should there be no match,
                -- processing will halt with @406 Not Acceptable@.
-             , contentTypesProvided     :: Webmachine m [(MediaType, Webmachine m ResponseBody)]
+             , contentTypesProvided     :: Webmachine m [(MediaType, Webmachine m (ResponseBody m))]
                -- | When a @DELETE@ request is enacted (via a @True@ value returned from 'deleteResource'), a
                -- @False@ value returns a @202 Accepted@ response. Returning @True@ will continue processing,
                -- usually ending up with a @204 No Content@ response. Default: False.

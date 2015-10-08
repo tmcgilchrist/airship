@@ -17,7 +17,6 @@ import           Control.Applicative                ((<$>))
 import           Control.Concurrent.MVar
 import           Control.Monad.State                hiding (State)
 
-import qualified Data.ByteString.Lazy               as LB
 import           Data.ByteString.Lazy.Char8         (unpack)
 import           Data.HashMap.Strict                (HashMap)
 import qualified Data.HashMap.Strict                as HM
@@ -35,13 +34,8 @@ import           Network.Wai.Handler.Warp           (defaultSettings,
 -- Helpers
 -- ***************************************************************************
 
-getBody :: MonadIO m => Webmachine m LB.ByteString
-getBody = do
-    req <- request
-    liftIO (entireRequestBody req)
-
 readBody :: MonadIO m => Webmachine m Integer
-readBody = read . unpack <$> getBody
+readBody = read . unpack <$> entireRequestBody
 
 routingParam :: Monad m => Text -> Webmachine m Text
 routingParam t = do

@@ -3,6 +3,7 @@ module Airship.Helpers
     , contentTypeMatches
     , redirectTemporarily
     , redirectPermanently
+    , fromWaiRequest
     , resourceToWai
     , resourceToWaiT
     ) where

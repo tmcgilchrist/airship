@@ -45,7 +45,7 @@ import           Control.Applicative
 #endif
 import Control.Monad (liftM)
 import Control.Monad.Base (MonadBase)
-import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Morph
 import Control.Monad.Reader.Class (MonadReader, ask)
 import Control.Monad.State.Class (MonadState, get, modify)
@@ -59,25 +59,64 @@ import Data.Monoid ((<>))
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 
+import Network.Socket (SockAddr(..))
+import qualified Network.HTTP.Types as HTTP
 import Network.HTTP.Types ( ResponseHeaders
+                          , RequestHeaders
+                          , Query
                           , Status
-                          )
+                          , Method
+                          , HttpVersion )
 
 import qualified Network.Wai as Wai
-import           Network.Wai (Request (..), defaultRequest)
 
+-- | Very similar to WAI's @Request@ type, except generalized to an arbitrary monad @m@.
+data Request m =
+    Request { requestMethod      :: Method -- ^ The request method -- @GET@, @POST@, @DELETE@, et cetera.
+            , httpVersion        :: HttpVersion -- ^ The HTTP version (usually 1.1; hopefully someday 2.0).
+            , rawPathInfo        :: ByteString -- ^ The unparsed path information yielded from the WAI server. You probably want 'pathInfo'.
+            , rawQueryString     :: ByteString -- ^ The query string, if any, yielded from the WAI server. You probably want 'queryString'.
+            , requestHeaders     :: RequestHeaders -- ^ An association list of (headername, value) pairs. See "Network.HTTP.Types.Header" for the possible values.
+            , isSecure           :: Bool -- ^ Was this request made over SSL/TLS?
+            , remoteHost         :: SockAddr -- ^ The address information of the client.
+            , pathInfo           :: [Text] -- ^ The URL, stripped of hostname and port, split on forward-slashes
+            , queryString        :: Query -- ^ Parsed query string information.
+            , requestBody        :: m ByteString -- ^ A monadic action that extracts a (possibly-empty) chunk of the request body.
+            , requestBodyLength  :: Wai.RequestBodyLength -- ^ Either @ChunkedBody@ or a @KnownLength 'Word64'@.
+            , requestHeaderHost  :: Maybe ByteString -- ^ Contains the Host header.
+            , requestHeaderRange :: Maybe ByteString -- ^ Contains the Range header.
+            , waiRequest         :: Wai.Request
+            }
+
+defaultRequest :: Monad m => Request m
+defaultRequest = Request
+    { requestMethod = HTTP.methodGet
+    , httpVersion = HTTP.http10
+    , rawPathInfo = BS.empty
+    , rawQueryString = BS.empty
+    , requestHeaders = []
+    , isSecure = False
+    , remoteHost = SockAddrInet 0 0
+    , pathInfo = []
+    , queryString = []
+    , requestBody = return BS.empty
+    , requestBodyLength = Wai.KnownLength 0
+    , requestHeaderHost = Nothing
+    , requestHeaderRange = Nothing
+    , waiRequest = Wai.defaultRequest
+    }
 
 -- | Reads the entirety of the request body in a single string.
 -- This turns the chunks obtained from repeated invocations of 'requestBody' into a lazy 'ByteString'.
-entireRequestBody :: MonadIO m => Request -> m LB.ByteString
-entireRequestBody req = liftIO (requestBody req) >>= strictRequestBody' LB.empty
+entireRequestBody :: Monad m => Request m -> m LB.ByteString
+entireRequestBody req = requestBody req >>= strictRequestBody' LB.empty
     where strictRequestBody' acc prev
             | BS.null prev = return acc
-            | otherwise = liftIO (requestBody req) >>= strictRequestBody' (acc <> LB.fromStrict prev)
+            | otherwise = requestBody req >>= strictRequestBody' (acc <> LB.fromStrict prev)
 
-data RequestReader = RequestReader { _now :: UTCTime
-                                   , _request :: Request
-                                   }
+data RequestReader m = RequestReader { _now :: UTCTime
+                                     , _request :: Request m
+                                     }
 
 data ETag = Strong ByteString
           | Weak ByteString
@@ -89,7 +128,8 @@ etagToByteString :: ETag -> ByteString
 etagToByteString (Strong bs) = "\"" <> bs <> "\""
 etagToByteString (Weak bs) = "W/\"" <> bs <> "\""
 
--- | Basically Wai's unexported 'Response' type.
+-- | Basically Wai's unexported 'Response' type, but generalized to any monad,
+-- 'm'.
 data ResponseBody
     = ResponseFile FilePath (Maybe Wai.FilePart)
     | ResponseBuilder Builder
@@ -115,9 +155,9 @@ data ResponseState = ResponseState { stateHeaders   :: ResponseHeaders
 type Trace = [Text]
 
 newtype Webmachine m a =
-    Webmachine { getWebmachine :: EitherT Response (RWST RequestReader Trace ResponseState m) a }
+    Webmachine { getWebmachine :: EitherT Response (RWST (RequestReader m) Trace ResponseState m) a }
         deriving (Functor, Applicative, Monad, MonadIO, MonadBase b,
-                  MonadReader RequestReader,
+                  MonadReader (RequestReader m),
                   MonadWriter Trace,
                   MonadState ResponseState)
 
@@ -125,7 +165,7 @@ instance MonadTrans Webmachine where
     lift = Webmachine . EitherT . (>>= return . Right) . lift
 
 newtype StMWebmachine m a = StMWebmachine {
-      unStMWebmachine :: StM (EitherT Response (RWST RequestReader Trace ResponseState m)) a
+      unStMWebmachine :: StM (EitherT Response (RWST (RequestReader m) Trace ResponseState m)) a
     }
 
 instance MonadBaseControl b m => MonadBaseControl b (Webmachine m) where
@@ -144,7 +184,7 @@ type Handler m a = Monad m => Webmachine m a
 ------------------------------------------------------------------------------
 
 -- | Returns the 'Request' that this 'Handler' is currently processing.
-request :: Handler m Request
+request :: Handler m (Request m)
 request = _request <$> ask
 
 -- | Returns the bound routing parameters extracted from the routing system (see "Airship.Route").
@@ -184,7 +224,7 @@ halt :: Monad m => Status -> Webmachine m a
 halt status = finishWith =<< Response <$> return status <*> getResponseHeaders <*> getResponseBody
 
 -- | Immediately halts processing and writes the provided 'Response' back to the client.
-finishWith :: Monad m => Response -> Webmachine m a
+finishWith :: Monad m => Response -> Handler m a
 finishWith = Webmachine . left
 
 -- | The @#>@ operator provides syntactic sugar for the construction of association lists.
@@ -212,12 +252,12 @@ k #> v = tell [(k, v)]
 both :: Either a a -> a
 both = either id id
 
-eitherResponse :: Monad m => UTCTime -> HashMap Text Text -> [Text] -> Request -> Webmachine m Response -> m (Response, Trace)
+eitherResponse :: Monad m => UTCTime -> HashMap Text Text -> [Text] -> Request m -> Webmachine m Response -> m (Response, Trace)
 eitherResponse reqDate reqParams dispatched req resource = do
     (e, trace) <- runWebmachine reqDate reqParams dispatched req resource
     return (both e, trace)
 
-runWebmachine :: Monad m => UTCTime -> HashMap Text Text -> [Text] -> Request -> Webmachine m a -> m (Either (Response) a, Trace)
+runWebmachine :: Monad m => UTCTime -> HashMap Text Text -> [Text] -> Request m -> Webmachine m a -> m (Either Response a, Trace)
 runWebmachine reqDate reqParams dispatched req w = do
     let startingState = ResponseState [] Empty reqParams dispatched
         requestReader = RequestReader reqDate req

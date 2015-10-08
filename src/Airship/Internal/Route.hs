@@ -16,8 +16,7 @@ import Data.HashMap.Strict (HashMap, insert)
 import           Control.Applicative
 #endif
 import Control.Monad.Identity
-import Control.Monad.Morph
-import Control.Monad.Writer (Writer, WriterT (..), execWriter, runWriterT)
+import Control.Monad.Writer (Writer, WriterT (..), execWriter)
 import Control.Monad.Writer.Class (MonadWriter)
 
 import Data.String (IsString, fromString)
@@ -80,12 +79,6 @@ star = Route [RestUnbound]
 --
 newtype RoutingSpec m a = RoutingSpec { getRouter :: Writer [(Route, Resource m)] a }
     deriving (Functor, Applicative, Monad, MonadWriter [(Route, Resource m)])
-
-instance MFunctor RoutingSpec where
-  hoist nat (RoutingSpec r) = RoutingSpec $
-    let Identity (a, w) = (runWriterT r)
-    in WriterT . Identity . (,) a $ fmap (\(ro, re) -> (ro, hoistResource nat re)) w
-
 
 route :: [(Route, a)] -> [Text] -> a -> (a, (HashMap Text Text, [Text]))
 route routes pInfo resource404 = foldr' (matchRoute pInfo) (resource404, (mempty, mempty)) routes

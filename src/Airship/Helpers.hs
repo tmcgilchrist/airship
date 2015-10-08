@@ -4,6 +4,7 @@ module Airship.Helpers
     , redirectTemporarily
     , redirectPermanently
     , resourceToWai
+    , resourceToWaiT
     ) where
 
 import           Airship.Internal.Helpers

@@ -33,7 +33,6 @@ module Airship.Types
     , halt
     , finishWith
     , (#>)
-    , hoist
     ) where
 
 import Blaze.ByteString.Builder (Builder)
@@ -51,7 +50,7 @@ import Control.Monad.Morph
 import Control.Monad.Reader.Class (MonadReader, ask)
 import Control.Monad.State.Class (MonadState, get, modify)
 import Control.Monad.Trans.Control (MonadBaseControl(..))
-import Control.Monad.Trans.Either (EitherT(..), mapEitherT, runEitherT, left)
+import Control.Monad.Trans.Either (EitherT(..), runEitherT, left)
 import Control.Monad.Trans.RWS.Strict (RWST(..), runRWST)
 import Control.Monad.Writer.Class (MonadWriter, tell)
 import Data.ByteString.Char8
@@ -91,7 +90,6 @@ etagToByteString (Strong bs) = "\"" <> bs <> "\""
 etagToByteString (Weak bs) = "W/\"" <> bs <> "\""
 
 -- | Basically Wai's unexported 'Response' type.
--- Was previously generalized to any monad, but that makes it impossible to use MFunctor.
 data ResponseBody
     = ResponseFile FilePath (Maybe Wai.FilePart)
     | ResponseBuilder Builder
@@ -125,9 +123,6 @@ newtype Webmachine m a =
 
 instance MonadTrans Webmachine where
     lift = Webmachine . EitherT . (>>= return . Right) . lift
-
-instance MFunctor Webmachine where
-  hoist nat = Webmachine . mapEitherT (hoist nat) . getWebmachine
 
 newtype StMWebmachine m a = StMWebmachine {
       unStMWebmachine :: StM (EitherT Response (RWST RequestReader Trace ResponseState m)) a

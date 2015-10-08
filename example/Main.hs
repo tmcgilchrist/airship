@@ -131,4 +131,4 @@ main = do
     mvar <- newMVar HM.empty
     let s = State mvar
     putStrLn "Listening on port 3000"
-    runSettings settings (resourceToWai defaultAirshipConfig (hoist (flip evalStateT s) routes) resource404)
+    runSettings settings (resourceToWaiT defaultAirshipConfig (flip evalStateT s) routes resource404)

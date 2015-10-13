@@ -80,17 +80,17 @@ toWaiResponse Response{..} cfg trace quip =
 -- | Given a 'RoutingSpec', a 404 resource, and a user state @s@, construct a WAI 'Application'.
 resourceToWai :: AirshipConfig -> RoutingSpec IO () -> Resource IO -> Wai.Application
 resourceToWai cfg routes resource404 =
-  resourceToWaiT cfg id routes resource404
+  resourceToWaiT cfg (const id) routes resource404
 
 -- | Given a 'RoutingSpec', a 404 resource, and a user state @s@, construct a WAI 'Application'.
-resourceToWaiT :: Monad m => AirshipConfig -> (m Wai.Response -> IO Wai.Response) -> RoutingSpec m () -> Resource m -> Wai.Application
+resourceToWaiT :: Monad m => AirshipConfig -> (Request -> m Wai.Response -> IO Wai.Response) -> RoutingSpec m () -> Resource m -> Wai.Application
 resourceToWaiT cfg run routes resource404 req respond = do
     let routeMapping = runRouter routes
         pInfo = Wai.pathInfo req
         (resource, (params', matched)) = route routeMapping pInfo resource404
     nowTime <- getCurrentTime
     quip <- getQuip
-    (=<<) respond . run $ do
+    (=<<) respond . run req $ do
       (response, trace) <- eitherResponse nowTime params' matched req (flow resource)
       return $ toWaiResponse response cfg (traceHeader trace) quip
 

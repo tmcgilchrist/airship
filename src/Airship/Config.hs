@@ -2,6 +2,7 @@ module Airship.Config
     ( AirshipConfig
     , HeaderInclusion (..)
     , includeTraceHeader
+    , includeQuipHeader
     , defaultAirshipConfig
     ) where
 
@@ -13,6 +14,7 @@ import           Lens.Micro (Lens', lens)
 -- microlens library, its lenses are compatible with Control.Lens.
 data AirshipConfig = AirshipConfig
     { _includeTraceHeader :: HeaderInclusion
+    , _includeQuipHeader :: HeaderInclusion
     }
 
 data HeaderInclusion = IncludeHeader | OmitHeader deriving (Eq, Show)
@@ -26,8 +28,14 @@ data HeaderInclusion = IncludeHeader | OmitHeader deriving (Eq, Show)
 includeTraceHeader :: Lens' AirshipConfig HeaderInclusion
 includeTraceHeader = lens _includeTraceHeader (\s n -> s { _includeTraceHeader = n })
 
+-- | Determines whether or not the @Airship-Quip@ header, which includes a pithy
+-- quote in your response headers, is included in every HTTP response.
+--
+-- Defaults to 'IncludeHeader' (enabled).
+includeQuipHeader :: Lens' AirshipConfig HeaderInclusion
+includeQuipHeader = lens _includeQuipHeader (\s n -> s { _includeQuipHeader = n })
+
 -- | The default configuration. Use this, in conjunction with the lenses declared
 -- above, to get and modify an 'AirshipConfig' to pass to 'resourceToWai'.
 defaultAirshipConfig :: AirshipConfig
-defaultAirshipConfig = AirshipConfig IncludeHeader
-
+defaultAirshipConfig = AirshipConfig IncludeHeader IncludeHeader

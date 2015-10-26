@@ -75,5 +75,11 @@ Then within the resource we handle both versions.
 Testing this using curl requires setting a custom content type header.
 
 ` curl -X GET http://localhost:port/dirigible -H "Content-Type: application/v1+json"`
+
 or
+
 ` curl -X GET http://localhost:port/dirigible -H "Content-Type: application/v2+json"`
+
+If you don't supply a `Content-Type` you'll get a 406 Not Acceptable, indicating that no content-type matches. 
+
+Also it's important to note that when testing using `curl` it will by default set an `Accept: */*` indicating that you accept any content-type. This will perform matching on the `contentTypesProvided` list starting at the beginning. So in the example above, V1 appears before V2 which means an `Accept */*` will match V1 first and never get to V2. 

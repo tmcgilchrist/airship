@@ -3,7 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
 
-module Main where
+module Basic where
 
 import           Airship
 import           Airship.Resource.Static            (StaticOptions (..),

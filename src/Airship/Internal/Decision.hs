@@ -43,7 +43,27 @@ import           Data.ByteString                  (ByteString, intercalate)
 
 import           Network.HTTP.Media
 import qualified Network.HTTP.Types as HTTP
-import qualified Network.HTTP.Types.Header as HTTP
+
+------------------------------------------------------------------------------
+-- HTTP Headers
+-- These are headers not defined for us already in
+-- Network.HTTP.Types
+------------------------------------------------------------------------------
+-- TODO this exist in http-types-0.9, see CHANGES.txt
+hAcceptCharset :: HTTP.HeaderName
+hAcceptCharset = "Accept-Charset"
+
+hAcceptEncoding :: HTTP.HeaderName
+hAcceptEncoding = "Accept-Encoding"
+
+hIfMatch :: HTTP.HeaderName
+hIfMatch = "If-Match"
+
+hIfUnmodifiedSince :: HTTP.HeaderName
+hIfUnmodifiedSince = "If-Unmodified-Since"
+
+hIfNoneMatch :: HTTP.HeaderName
+hIfNoneMatch = "If-None-Match"
 
 ------------------------------------------------------------------------------
 -- FlowState: StateT used for recording information as we walk the decision
@@ -66,7 +86,7 @@ flow r = evalStateT (b13 r) initFlowState
 trace :: Monad m => Text -> FlowStateT m ()
 trace t = lift $ tell [t]
 
-------------------------------------------------------------------------------
+-----------------------------------------------------------------------------
 -- Header value data newtypes
 ------------------------------------------------------------------------------
 
@@ -305,7 +325,7 @@ e05 r@Resource{..} = do
     trace "e05"
     req <- lift request
     let reqHeaders = requestHeaders req
-    case lookup HTTP.hAcceptCharset reqHeaders of
+    case lookup hAcceptCharset reqHeaders of
         (Just _h) ->
             e06 r
         Nothing ->
@@ -324,7 +344,7 @@ f06 r@Resource{..} = do
     trace "f06"
     req <- lift request
     let reqHeaders = requestHeaders req
-    case lookup HTTP.hAcceptEncoding reqHeaders of
+    case lookup hAcceptEncoding reqHeaders of
         (Just _h) ->
             f07 r
         Nothing ->
@@ -354,7 +374,7 @@ g08 r@Resource{..} = do
     trace "g08"
     req <- lift request
     let reqHeaders = requestHeaders req
-    case IfMatch <$> lookup HTTP.hIfMatch reqHeaders of
+    case IfMatch <$> lookup hIfMatch reqHeaders of
         (Just h) ->
             g09 h r
         Nothing ->
@@ -375,7 +395,7 @@ g07 r@Resource{..} = do
 h12 r@Resource{..} = do
     trace "h12"
     modified <- lift lastModified
-    parsedDate <- lift $ requestHeaderDate HTTP.hIfUnmodifiedSince
+    parsedDate <- lift $ requestHeaderDate hIfUnmodifiedSince
     let maybeGreater = do
             lastM <- modified
             headerDate <- parsedDate
@@ -386,7 +406,7 @@ h12 r@Resource{..} = do
 
 h11 r@Resource{..} = do
     trace "h11"
-    parsedDate <- lift $ requestHeaderDate HTTP.hIfUnmodifiedSince
+    parsedDate <- lift $ requestHeaderDate hIfUnmodifiedSince
     if isJust parsedDate
         then h12 r
         else i12 r
@@ -395,7 +415,7 @@ h10 r@Resource{..} = do
     trace "h10"
     req <- lift request
     let reqHeaders = requestHeaders req
-    case lookup HTTP.hIfUnmodifiedSince reqHeaders of
+    case lookup hIfUnmodifiedSince reqHeaders of
         (Just _h) ->
             h11 r
         Nothing ->
@@ -405,7 +425,7 @@ h07 r@Resource {..} = do
     trace "h07"
     req <- lift request
     let reqHeaders = requestHeaders req
-    case lookup HTTP.hIfMatch reqHeaders of
+    case lookup hIfMatch reqHeaders of
         -- TODO: should we be stripping whitespace here?
         (Just "*") ->
             lift $ halt HTTP.status412
@@ -429,7 +449,7 @@ i12 r@Resource{..} = do
     trace "i12"
     req <- lift request
     let reqHeaders = requestHeaders req
-    case IfNoneMatch <$> lookup HTTP.hIfNoneMatch reqHeaders of
+    case IfNoneMatch <$> lookup hIfNoneMatch reqHeaders of
         (Just h) ->
             i13 h r
         Nothing ->

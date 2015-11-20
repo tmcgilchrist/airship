@@ -90,8 +90,8 @@ jsonResponseV2 db = do
 
 dirigibleResource :: Db -> Resource IO
 dirigibleResource db = defaultResource {
-        allowedMethods = return [ HTTP.methodGet ]
-      , contentTypesProvided = return [ ("application/v1+json", jsonResponseV1 db)
+        _allowedMethods = return [ HTTP.methodGet ]
+      , _contentTypesProvided = return [ ("application/v1+json", jsonResponseV1 db)
                                       , ("application/v2+json", jsonResponseV2 db)]
     }
 
@@ -108,8 +108,8 @@ main = do
         host = "127.0.0.1"
         settings = setPort port (setHost host defaultSettings)
         response404 = escapedResponse "<html><head></head><body><h1>404 Not Found</h1></body></html>"
-        resource404 = defaultResource { resourceExists = return False
-                                      , contentTypesProvided = return
+        resource404 = defaultResource { _resourceExists = return False
+                                      , _contentTypesProvided = return
                                             [ ( "text/html"
                                               , return response404
                                               )

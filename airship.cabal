@@ -51,6 +51,7 @@ library
                       , http-types >= 0.8 && <0.10
                       , lifted-base == 0.2.*
                       , microlens
+                      , microlens-th
                       , monad-control >= 1.0
                       , mime-types == 0.1.0.*
                       , mmorph == 1.0.*

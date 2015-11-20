@@ -100,7 +100,7 @@ newtype IfNoneMatch = IfNoneMatch ByteString
 negotiateContentTypesAccepted :: Monad m => Resource m -> FlowStateT m ()
 negotiateContentTypesAccepted Resource{..} = do
     req <- lift request
-    accepted <- lift contentTypesAccepted
+    accepted <- lift _contentTypesAccepted
     let reqHeaders = requestHeaders req
         result = do
             cType <- lookup HTTP.hContentType reqHeaders
@@ -125,11 +125,11 @@ requestHeaderDate headerName = do
 
 writeCacheTags :: Monad m => Resource m -> FlowStateT m ()
 writeCacheTags Resource{..} = lift $ do
-    etag <- generateETag
+    etag <- _generateETag
     case etag of
        Nothing -> return ()
        Just t  -> addResponseHeader ("ETag", etagToByteString t)
-    modified <- lastModified
+    modified <- _lastModified
     case modified of
        Nothing -> return ()
        Just d  -> addResponseHeader ("Last-Modified", utcTimeToRfc1123 d)
@@ -163,7 +163,7 @@ p11, p03 :: Monad m => Flow  m
 
 b13 r@Resource{..} = do
     trace "b13"
-    available <- lift serviceAvailable
+    available <- lift _serviceAvailable
     if available
         then b12 r
         else lift $ halt HTTP.status503
@@ -188,7 +188,7 @@ b12 r@Resource{..} = do
 
 b11 r@Resource{..} = do
     trace "b11"
-    long <- lift uriTooLong
+    long <- lift _uriTooLong
     if long
         then lift $ halt HTTP.status414
         else b10 r
@@ -196,7 +196,7 @@ b11 r@Resource{..} = do
 b10 r@Resource{..} = do
     trace "b10"
     req <- lift request
-    allowed <- lift allowedMethods
+    allowed <- lift _allowedMethods
     if requestMethod req `elem` allowed
         then b09 r
         else do
@@ -205,42 +205,42 @@ b10 r@Resource{..} = do
 
 b09 r@Resource{..} = do
     trace "b09"
-    malformed <- lift malformedRequest
+    malformed <- lift _malformedRequest
     if malformed
         then lift $ halt HTTP.status400
         else b08 r
 
 b08 r@Resource{..} = do
     trace "b08"
-    authorized <- lift isAuthorized
+    authorized <- lift _isAuthorized
     if authorized
         then b07 r
         else lift $ halt HTTP.status401
 
 b07 r@Resource{..} = do
     trace "b07"
-    forbid <- lift forbidden
+    forbid <- lift _forbidden
     if forbid
         then lift $ halt HTTP.status403
         else b06 r
 
 b06 r@Resource{..} = do
     trace "b06"
-    validC <- lift validContentHeaders
+    validC <- lift _validContentHeaders
     if validC
         then b05 r
         else lift $ halt HTTP.status501
 
 b05 r@Resource{..} = do
     trace "b05"
-    known <- lift knownContentType
+    known <- lift _knownContentType
     if known
         then b04 r
         else lift $ halt HTTP.status415
 
 b04 r@Resource{..} = do
     trace "b04"
-    large <- lift entityTooLarge
+    large <- lift _entityTooLarge
     if large
         then lift $ halt HTTP.status413
         else b03 r
@@ -248,7 +248,7 @@ b04 r@Resource{..} = do
 b03 r@Resource{..} = do
     trace "b03"
     req <- lift request
-    allowed <- lift allowedMethods
+    allowed <- lift _allowedMethods
     if requestMethod req == HTTP.methodOptions
         then do
             lift $ addResponseHeader ("Allow",  intercalate "," allowed)
@@ -262,7 +262,7 @@ b03 r@Resource{..} = do
 c04 r@Resource{..} = do
     trace "c04"
     req <- lift request
-    provided <- lift contentTypesProvided
+    provided <- lift _contentTypesProvided
     let reqHeaders = requestHeaders req
         result = do
             acceptStr <- lookup HTTP.hAccept reqHeaders
@@ -297,7 +297,7 @@ c03 r@Resource{..} = do
 
 d05 r@Resource{..} = do
     trace "d05"
-    langAvailable <- lift languageAvailable
+    langAvailable <- lift _languageAvailable
     if langAvailable
         then e05 r
         else lift $ halt HTTP.status406
@@ -383,7 +383,7 @@ g08 r@Resource{..} = do
 g07 r@Resource{..} = do
     trace "g07"
     -- TODO: set Vary headers
-    exists <- lift resourceExists
+    exists <- lift _resourceExists
     if exists
         then g08 r
         else h07 r
@@ -394,7 +394,7 @@ g07 r@Resource{..} = do
 
 h12 r@Resource{..} = do
     trace "h12"
-    modified <- lift lastModified
+    modified <- lift _lastModified
     parsedDate <- lift $ requestHeaderDate hIfUnmodifiedSince
     let maybeGreater = do
             lastM <- modified
@@ -464,7 +464,7 @@ i07 r = do
 
 i04 r@Resource{..} = do
     trace "i04"
-    moved <- lift movedPermanently
+    moved <- lift _movedPermanently
     case moved of
         (Just loc) -> do
             lift $ addResponseHeader ("Location", loc)
@@ -499,14 +499,14 @@ k13 (IfNoneMatch ifNoneMatch) r@Resource{..} = do
 
 k07 r@Resource{..} = do
     trace "k07"
-    prevExisted <- lift previouslyExisted
+    prevExisted <- lift _previouslyExisted
     if prevExisted
         then k05 r
         else l07 r
 
 k05 r@Resource{..} = do
     trace "k05"
-    moved <- lift movedPermanently
+    moved <- lift _movedPermanently
     case moved of
         (Just loc) -> do
             lift $ addResponseHeader ("Location", loc)
@@ -521,7 +521,7 @@ k05 r@Resource{..} = do
 l17 r@Resource{..} = do
     trace "l17"
     parsedDate <- lift $ requestHeaderDate HTTP.hIfModifiedSince
-    modified <- lift lastModified
+    modified <- lift _lastModified
     let maybeGreater = do
             lastM <- modified
             ifModifiedSince <- parsedDate
@@ -568,7 +568,7 @@ l07 r = do
 
 l05 r@Resource{..} = do
     trace "l05"
-    moved <- lift movedTemporarily
+    moved <- lift _movedTemporarily
     case moved of
         (Just loc) -> do
             lift $ addResponseHeader ("Location", loc)
@@ -582,10 +582,10 @@ l05 r@Resource{..} = do
 
 m20 r@Resource{..} = do
     trace "m20"
-    deleteAccepted <- lift deleteResource
+    deleteAccepted <- lift _deleteResource
     if deleteAccepted
         then do
-            completed <- lift deleteCompleted
+            completed <- lift _deleteCompleted
             if completed
                 then o20 r
                 else lift $ halt HTTP.status202
@@ -600,8 +600,8 @@ m16 r = do
 
 m07 r@Resource{..} = do
     trace "m07"
-    allowMissing <- lift allowMissingPost
-    if allowMissing
+    _allowMissing <- lift _allowMissingPost
+    if _allowMissing
         then n11 r
         else lift $ halt HTTP.status404
 
@@ -623,7 +623,7 @@ n16 r = do
         then n11 r
         else o16 r
 
-n11 r@Resource{..} = trace "n11" >> lift processPost >>= flip processPostAction r
+n11 r@Resource{..} = trace "n11" >> lift _processPost >>= flip processPostAction r
 
 create :: Monad m => [Text] -> Resource m -> FlowStateT m ()
 create ts r = do
@@ -647,7 +647,7 @@ processPostAction (PostProcessRedirect ts) _r = do
 
 n05 r@Resource{..} = do
     trace "n05"
-    allow <- lift allowMissingPost
+    allow <- lift _allowMissingPost
     if allow
         then n11 r
         else lift $ halt HTTP.status410
@@ -667,7 +667,7 @@ o20 r = do
 
 o18 r@Resource{..} = do
     trace "o18"
-    multiple <- lift multipleChoices
+    multiple <- lift _multipleChoices
     if multiple
         then lift $ halt HTTP.status300
         else do
@@ -680,7 +680,7 @@ o18 r@Resource{..} = do
                 m <- _contentType <$> get
                 (cType, body) <- case m of
                     Nothing -> do
-                        provided <- lift contentTypesProvided
+                        provided <- lift _contentTypesProvided
                         return (head provided)
                     Just (cType, body) ->
                         return (cType, body)
@@ -699,7 +699,7 @@ o16 r = do
 
 o14 r@Resource{..} = do
     trace "o14"
-    conflict <- lift isConflict
+    conflict <- lift _isConflict
     if conflict
         then lift $ halt HTTP.status409
         else negotiateContentTypesAccepted r >> p11 r
@@ -719,7 +719,7 @@ p11 r = do
 
 p03 r@Resource{..} = do
     trace "p03"
-    conflict <- lift isConflict
+    conflict <- lift _isConflict
     if conflict
         then lift $ halt HTTP.status409
         else negotiateContentTypesAccepted r >> p11 r

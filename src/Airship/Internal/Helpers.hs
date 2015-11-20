@@ -10,11 +10,12 @@ import           Control.Applicative
 #endif
 import           Data.ByteString           (ByteString)
 import qualified Data.ByteString.Lazy      as LazyBS
+import qualified Data.HashMap.Strict       as HM
 import           Data.Maybe
 #if __GLASGOW_HASKELL__ < 710
 import           Data.Monoid
 #endif
-import           Data.Text                 (Text, intercalate)
+import           Data.Text                 (Text, intercalate, unpack)
 import           Data.Text.Encoding
 import           Data.Time                 (getCurrentTime)
 import           Lens.Micro                ((^.))
@@ -23,6 +24,7 @@ import qualified Network.HTTP.Types        as HTTP
 import qualified Network.Wai               as Wai
 import           Network.Wai.Parse
 import           System.Random
+import           Text.Read
 
 import           Airship.Config
 import           Airship.Headers
@@ -30,6 +32,20 @@ import           Airship.Internal.Decision
 import           Airship.Internal.Route
 import           Airship.Resource
 import           Airship.Types
+
+-- | As 'readParamMaybe', except this function eliminates the @Maybe@
+-- value by invoking the provided @Handler@ should reading the provided
+-- parameter fail.
+readParam :: (Monad m, Read a) => Text -> Webmachine m a -> Webmachine m a
+readParam p def = readParamMaybe p >>= maybe def return
+
+-- | Reads the parameter of the provided name and attempt to convert
+-- it to the desired 'Read'-implementing type. If the parameter is not
+-- found or cannot be read successfully, @Nothing@ is returned.
+readParamMaybe :: (Monad m, Read a) => Text -> Webmachine m (Maybe a)
+readParamMaybe p = do
+    mStr <- fmap unpack <$> HM.lookup p <$> params
+    return $ mStr >>= readMaybe
 
 -- | Parse form data uploaded with a @Content-Type@ of either
 -- @www-form-urlencoded@ or @multipart/form-data@ to return a

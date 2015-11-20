@@ -5,6 +5,8 @@ module Airship.Helpers
     , redirectPermanently
     , resourceToWai
     , resourceToWaiT
+    , readParam
+    , readParamMaybe
     ) where
 
 import           Airship.Internal.Helpers

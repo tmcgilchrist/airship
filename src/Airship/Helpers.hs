@@ -5,6 +5,7 @@ module Airship.Helpers
     , redirectPermanently
     , resourceToWai
     , resourceToWaiT
+    , appendRequestPath
     ) where
 
 import           Airship.Internal.Helpers

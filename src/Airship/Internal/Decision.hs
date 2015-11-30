@@ -6,6 +6,7 @@
 
 module Airship.Internal.Decision
     ( flow
+    , appendRequestPath
     ) where
 
 import           Airship.Internal.Date (parseRfc1123Date, utcTimeToRfc1123)

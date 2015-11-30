@@ -6,8 +6,6 @@
 
 Airship is a Haskell library for handling and serving HTTP requests in a RESTful fashion. It is heavily inspired by [Webmachine](https://github.com/basho/webmachine) and works with any [WAI](https://hackage.haskell.org/package/wai)-compatible web server such as [Warp](https://hackage.haskell.org/package/warp). It aims to be small, fast, and flexible.
 
-The API is highly experimental and subject to rapid, dizzying change. Caveat programmator.
-
 # How does it work?
 
 Airship resources are represented with a [`Resource` record type](https://github.com/helium/airship/blob/master/src/Airship/Resource.hs#L34-L106). Each field in `Resource` corresponds to an action taken in the [Webmachine decision tree](https://raw.githubusercontent.com/wiki/Webmachine/webmachine/images/http-headers-status-v3.png). Airship provides a `defaultResource` with sensible defaults for each of these actions; you build web services by overriding fields in the default resource with your own.

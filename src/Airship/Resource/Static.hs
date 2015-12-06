@@ -55,7 +55,7 @@ data FileTree = FileTree { tree :: Trie.Trie FileInfo
 data FileInfo = FileInfo
     { _path          :: FilePath
     , _size          :: Integer
-    , _lastModified  :: UTCTime
+    , _lastMod       :: UTCTime
     , _etag          :: ETag
     } deriving (Show, Eq, Ord)
 
@@ -102,7 +102,7 @@ fileInfos = map (\(p, s, e) -> (pack p, statusToInfo p s e))
 statusToInfo :: FilePath -> Files.FileStatus -> ETag -> FileInfo
 statusToInfo p i e = FileInfo { _path = p
                               , _size = fromIntegral (Files.fileSize i)
-                              , _lastModified = epochToUTCTime (Files.modificationTime i)
+                              , _lastMod = epochToUTCTime (Files.modificationTime i)
                               , _etag = e
                               }
 
@@ -118,15 +118,15 @@ staticResource options p = staticResource' options <$> directoryTree p
 
 staticResource' :: Monad m => StaticOptions -> FileTree -> Resource m
 staticResource' options FileTree{..} = defaultResource
-    { allowedMethods = return [ HTTP.methodGet, HTTP.methodHead ]
-    , resourceExists = getFileInfo >> return True
-    , generateETag = if options == Cache
+    { _allowedMethods = return [ HTTP.methodGet, HTTP.methodHead ]
+    , _resourceExists = getFileInfo >> return True
+    , _generateETag = if options == Cache
                         then Just . _etag <$> getFileInfo
                         else return Nothing
-    , lastModified = if options == Cache
-                        then Just . _lastModified <$> getFileInfo
+    , _lastModified = if options == Cache
+                        then Just . _lastMod <$> getFileInfo
                         else return Nothing
-    , contentTypesProvided = do
+    , _contentTypesProvided = do
         fInfo <- getFileInfo
         when (options == NoCache) addNoCacheHeaders
         let response = return (ResponseFile (_path fInfo) Nothing)

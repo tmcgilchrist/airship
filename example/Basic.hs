@@ -51,21 +51,21 @@ routingParam t = do
 newtype State = State { _getState :: MVar (HashMap Text Integer) }
 
 resourceWithBody :: (MonadIO m, MonadState State m) => Text -> Resource m
-resourceWithBody t = defaultResource { contentTypesProvided = return [("text/plain", return (escapedResponse t))]
-                                     , lastModified = Just <$> liftIO getCurrentTime
-                                     , generateETag = return $ Just $ Strong "abc123"
+resourceWithBody t = defaultResource { _contentTypesProvided = return [("text/plain", return (escapedResponse t))]
+                                     , _lastModified = Just <$> liftIO getCurrentTime
+                                     , _generateETag = return $ Just $ Strong "abc123"
                                      }
 
 accountResource :: (MonadIO m, MonadState State m) => Resource m
 accountResource = defaultResource
-    { allowedMethods = return [ HTTP.methodGet
+    { _allowedMethods = return [ HTTP.methodGet
                               , HTTP.methodHead
                               , HTTP.methodPost
                               , HTTP.methodPut
                               ]
-    , knownContentType = contentTypeMatches ["text/plain"]
+    , _knownContentType = contentTypeMatches ["text/plain"]
 
-    , contentTypesProvided = do
+    , _contentTypesProvided = do
         let textAction = do
                 s <- lift get
                 m <- liftIO (readMVar (_getState s))
@@ -75,24 +75,24 @@ accountResource = defaultResource
                                                 (pack (show val) <> "\n"))
         return [("text/plain", textAction)]
 
-    , allowMissingPost = return False
+    , _allowMissingPost = return False
 
-    , lastModified = Just <$> liftIO getCurrentTime
+    , _lastModified = Just <$> liftIO getCurrentTime
 
-    , resourceExists = do
+    , _resourceExists = do
         accountName <- routingParam "name"
         s <- lift get
         m <- liftIO (readMVar (_getState s))
         return $ HM.member accountName m
 
     -- POST'ing to this resource adds the integer to the current value
-    , processPost = return (PostProcess $ do
+    , _processPost = return (PostProcess $ do
         (val, accountName, s) <- postPutStates
         liftIO (modifyMVar_ (_getState s) (return . HM.insertWith (+) accountName val))
         return ()
         )
 
-    , contentTypesAccepted = return [("text/plain", do
+    , _contentTypesAccepted = return [("text/plain", do
         (val, accountName, s) <- postPutStates
         liftIO (modifyMVar_ (_getState s) (return . HM.insert accountName val))
         return ()
@@ -120,8 +120,8 @@ main = do
         settings = setPort port (setHost host defaultSettings)
         routes = myRoutes static
         response404 = escapedResponse "<html><head></head><body><h1>404 Not Found</h1></body></html>"
-        resource404 = defaultResource { resourceExists = return False
-                                      , contentTypesProvided = return
+        resource404 = defaultResource { _resourceExists = return False
+                                      , _contentTypesProvided = return
                                             [ ( "text/html"
                                               , return response404
                                               )

@@ -11,6 +11,8 @@ module Airship.Internal.Helpers
     , resourceToWai
     , resourceToWaiT
     , appendRequestPath
+    , lookupParam
+    , lookupParam'
     ) where
 
 #if __GLASGOW_HASKELL__ < 710
@@ -22,6 +24,7 @@ import           Data.Maybe
 #if __GLASGOW_HASKELL__ < 710
 import           Data.Monoid
 #endif
+import qualified Data.HashMap.Strict       as HM
 import           Data.Text                 (Text, intercalate)
 import           Data.Text.Encoding
 import           Data.Time                 (getCurrentTime)
@@ -29,6 +32,7 @@ import           Lens.Micro                ((^.))
 import           Network.HTTP.Media
 import qualified Network.HTTP.Types        as HTTP
 import qualified Network.Wai               as Wai
+
 import           Network.Wai.Parse
 import           System.Random
 
@@ -124,3 +128,13 @@ getQuip = do
 
 traceHeader :: [Text] -> ByteString
 traceHeader = encodeUtf8 . intercalate ","
+
+-- | Lookup routing parameter and return 500 Internal Server Error if not found.
+-- Not finding the paramter usually means the route doesn't match what
+-- the resource is expecting.
+lookupParam :: Monad m => Text -> Webmachine m Text
+lookupParam p = lookupParam' p >>= maybe (halt HTTP.status500) pure
+
+-- | Lookup routing parameter.
+lookupParam' :: Monad m => Text -> Webmachine m (Maybe Text)
+lookupParam' p = HM.lookup p <$> params

@@ -64,7 +64,7 @@ data Resource m =
              , implemented              :: Webmachine m Bool
                -- | Returns @401 Unauthorized@ if false. Default: true.
              , isAuthorized             :: Webmachine m Bool
-               -- | When processing @PUT@ requests, a @True@ value returned here will halt processing with a @409 Created@.
+               -- | When processing @PUT@ requests, a @True@ value returned here will halt processing with a @409 Conflict@.
              , isConflict               :: Webmachine m Bool
                -- | Returns @415 Unsupported Media Type@ if false. We recommend you use the 'contentTypeMatches' helper function, which accepts a list of
                -- 'MediaType' values, so as to simplify proper MIME type handling. Default: true.

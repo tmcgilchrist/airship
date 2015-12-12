@@ -18,6 +18,6 @@ routes = do
     "account" </> var "name"    #> accountResource
 ```
 
-For a simple example that handles HTTP GET and POST requests, please check [`example/Main.hs`](https://github.com/helium/airship/blob/master/example/Main.hs). For a slightly more involved example that generates HTML and manages a pool of resources, please check the [blimp](https://github.com/patrickt/blimp) repository.
+For a simple example that handles HTTP GET and POST requests, please check [`example/Basic.hs`](https://github.com/helium/airship/blob/master/example/Basic.hs). For a slightly more involved example that generates HTML and manages a pool of resources, please check the [blimp](https://github.com/patrickt/blimp) repository.
 
 Airship is copyright &copy; 2015 Helium Systems, Inc., and released to the public under the terms of the MIT license.

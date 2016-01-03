@@ -1,6 +1,5 @@
 module Airship.Helpers
     ( parseFormData
-    , contentTypeMatches
     , redirectTemporarily
     , redirectPermanently
     , appendRequestPath

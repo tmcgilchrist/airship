@@ -206,12 +206,15 @@ b06 validC = do
         then return ()
         else lift $ halt HTTP.status501
 
-b05 :: Monad m => Bool -> FlowStateT m ()
+b05 :: Monad m => [(MediaType, a)] -> FlowStateT m (Maybe a)
 b05 known = do
     trace "b05"
-    if known
-        then return ()
-        else lift $ halt HTTP.status415
+    headers <- requestHeaders <$> lift request
+    case lookup HTTP.hContentType headers of
+        Nothing -> return Nothing
+        Just t -> case mapAcceptMedia known t of
+            Just a -> return $ Just a
+            Nothing -> lift $ halt HTTP.status415
 
 b04 :: Monad m => Bool-> FlowStateT m ()
 b04 large = do

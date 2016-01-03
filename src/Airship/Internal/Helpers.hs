@@ -5,7 +5,6 @@
 
 module Airship.Internal.Helpers
     ( parseFormData
-    , contentTypeMatches
     , redirectTemporarily
     , redirectPermanently
     , appendRequestPath
@@ -21,7 +20,6 @@ import           Control.Applicative
 #endif
 import           Data.ByteString           (ByteString)
 import qualified Data.ByteString.Lazy      as LazyBS
-import           Data.Maybe
 #if __GLASGOW_HASKELL__ < 710
 import           Data.Monoid
 #endif
@@ -29,7 +27,6 @@ import qualified Data.HashMap.Strict       as HM
 import           Data.Text                 (Text, intercalate)
 import           Data.Text.Encoding
 import           Lens.Micro                ((^.))
-import           Network.HTTP.Media
 import qualified Network.HTTP.Types        as HTTP
 import qualified Network.Wai               as Wai
 
@@ -47,17 +44,6 @@ import           Airship.Types
 -- files and their information.
 parseFormData :: Request -> IO ([Param], [File LazyBS.ByteString])
 parseFormData r = parseRequestBody lbsBackEnd r
-
--- | Returns @True@ if the request's @Content-Type@ header is one of the
--- provided media types. If the @Content-Type@ header is not present,
--- this function will return True.
-contentTypeMatches :: Monad m => [MediaType] -> Webmachine m Bool
-contentTypeMatches validTypes = do
-    headers <- requestHeaders <$> request
-    let cType = lookup HTTP.hContentType headers
-    return $ case cType of
-        Nothing -> True
-        Just t  -> isJust $ matchAccept validTypes t
 
 -- | Issue an HTTP 302 (Found) response, with `location' as the destination.
 redirectTemporarily :: Monad m => ByteString -> Webmachine m a

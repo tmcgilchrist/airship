@@ -22,26 +22,26 @@ import           Data.ByteString (ByteString)
 import           Data.Foldable (traverse_)
 import           Data.Traversable (traverse)
 
-import           Network.HTTP.Media (MediaType, mapContentMedia)
+import           Network.HTTP.Media (MediaType)
 import qualified Network.HTTP.Types as HTTP
 
 
 flow :: Monad m => Resource m -> Webmachine m Response
 flow r@Resource{..} = flip evalStateT () $ do
-    validate r
+    cta <- validate r
     ctp <- accept r
     cache <- lift resourceExists >>= g07 >>= \case
         False -> do
-            create r
+            create r cta
             lift $ resourceCacheData r
         True -> do
             cache <- lift $ resourceCacheData r
             preconditions cache
-            process r
+            process r cta
             return cache
     ok r ctp cache
 
-validate :: Monad m => Resource m -> FlowStateT m ()
+validate :: Monad m => Resource m -> FlowStateT m (Maybe (Webmachine m ()))
 validate Resource{..} = do
     lift serviceAvailable >>= b13
     b12
@@ -51,9 +51,10 @@ validate Resource{..} = do
     lift isAuthorized >>= b08
     lift forbidden >>= b07
     lift validContentHeaders >>= b06
-    lift knownContentType >>= b05
+    ct <- lift contentTypesAccepted >>= b05
     lift entityTooLarge >>= b04
     lift allowedMethods >>= b03
+    return ct
 
 accept :: Monad m => Resource m -> FlowStateT m (Maybe (MediaType, Webmachine m ResponseBody))
 accept Resource{..} = do
@@ -63,14 +64,14 @@ accept Resource{..} = do
     f06 >>= traverse_ f07
     return ctp
 
-create :: Monad m => Resource m -> FlowStateT m ()
-create r@Resource{..} = do
+create :: Monad m => Resource m -> Maybe (Webmachine m ()) -> FlowStateT m ()
+create r@Resource{..} cta = do
     h07
     i07 >>= \case
         True -> do
             lift movedPermanently >>= i04 . fmap Location
             lift isConflict >>= p03
-            negotiateContentTypesAccepted r
+            traverse_ lift cta
             p11' r
         False ->
             lift previouslyExisted >>= k07 >>= \case
@@ -85,8 +86,8 @@ create r@Resource{..} = do
                     lift allowMissingPost >>= m07
                     n11' r
 
-process :: Monad m => Resource m -> FlowStateT m ()
-process r@Resource{..} =
+process :: Monad m => Resource m -> Maybe (Webmachine m ()) -> FlowStateT m ()
+process r@Resource{..} cta =
     m16 >>= \case
         True -> do
             lift deleteResource >>= flip unless (lift $ halt HTTP.status500)
@@ -102,7 +103,7 @@ process r@Resource{..} =
                            return ()
                        True -> do
                            lift isConflict >>= o14
-                           negotiateContentTypesAccepted r
+                           traverse_ lift cta
                            p11' r
 
 ok :: Monad m => Resource m -> Maybe (MediaType, Webmachine m ResponseBody) -> CacheData -> FlowStateT m Response
@@ -112,8 +113,8 @@ ok Resource{..} ctp cache = do
     o18 mc cache a p
 
 n11' :: Monad m => Resource m -> FlowStateT m ()
-n11' r@Resource{..} = do
-    lift processPost >>= processPostAction r
+n11' Resource{..} = do
+    lift processPost >>= processPostAction
     lift responseLocation >>= p11 . fmap Location
     lift getResponseBody >>= o20
 
@@ -122,18 +123,12 @@ p11' Resource{..} = do
     lift responseLocation >>= p11 . fmap Location
     lift getResponseBody >>= o20
 
-processPostAction :: Monad m => Resource m -> PostResponse m -> FlowStateT m ()
-processPostAction r = \case
+processPostAction :: Monad m => PostResponse m -> FlowStateT m ()
+processPostAction = \case
     PostCreate ts -> do
         n11 Nothing
         loc <- lift (appendRequestPath ts)
         lift (addResponseHeader ("Location", loc))
-    PostCreateRedirect ts -> do
-        n11 Nothing
-        loc <- lift (appendRequestPath ts)
-        lift (addResponseHeader ("Location", loc))
-        negotiateContentTypesAccepted r
-        lift $ halt HTTP.status303
     PostProcess p -> do
         n11 Nothing
         lift p
@@ -148,15 +143,3 @@ resourceCacheData Resource{..} =
 responseLocation :: Monad m => Webmachine m (Maybe ByteString)
 responseLocation =
     lookup HTTP.hLocation <$> getResponseHeaders
-
-negotiateContentTypesAccepted :: Monad m => Resource m -> FlowStateT m ()
-negotiateContentTypesAccepted Resource{..} = do
-    req <- lift request
-    accepted <- lift contentTypesAccepted
-    let reqHeaders = requestHeaders req
-        result = do
-            cType <- lookup HTTP.hContentType reqHeaders
-            mapContentMedia accepted cType
-    case result of
-        (Just process') -> lift process'
-        Nothing -> lift $ halt HTTP.status415

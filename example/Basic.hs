@@ -63,7 +63,6 @@ accountResource = defaultResource
                               , HTTP.methodPost
                               , HTTP.methodPut
                               ]
-    , knownContentType = contentTypeMatches ["text/plain"]
 
     , contentTypesProvided = do
         let textAction = do

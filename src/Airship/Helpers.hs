@@ -3,8 +3,6 @@ module Airship.Helpers
     , contentTypeMatches
     , redirectTemporarily
     , redirectPermanently
-    , resourceToWai
-    , resourceToWaiT
     , appendRequestPath
     , lookupParam
     , lookupParam'

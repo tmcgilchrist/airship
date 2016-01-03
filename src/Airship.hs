@@ -9,5 +9,8 @@ import           Airship.Config as X
 import           Airship.Headers as X
 import           Airship.Helpers as X
 import           Airship.Resource as X
+import           Airship.Resource.Decision as X
+import           Airship.Resource.Route as X
+import           Airship.Resource.Wai as X
 import           Airship.Route as X
 import           Airship.Types as X

@@ -8,11 +8,12 @@ module Airship.Internal.Helpers
     , contentTypeMatches
     , redirectTemporarily
     , redirectPermanently
-    , resourceToWai
-    , resourceToWaiT
     , appendRequestPath
     , lookupParam
     , lookupParam'
+    , toWaiResponse
+    , getQuip
+    , traceHeader
     ) where
 
 #if __GLASGOW_HASKELL__ < 710
@@ -27,7 +28,6 @@ import           Data.Monoid
 import qualified Data.HashMap.Strict       as HM
 import           Data.Text                 (Text, intercalate)
 import           Data.Text.Encoding
-import           Data.Time                 (getCurrentTime)
 import           Lens.Micro                ((^.))
 import           Network.HTTP.Media
 import qualified Network.HTTP.Types        as HTTP
@@ -38,9 +38,7 @@ import           System.Random
 
 import           Airship.Config
 import           Airship.Headers
-import           Airship.Internal.Decision
-import           Airship.Internal.Route
-import           Airship.Resource
+import           Airship.Internal.Decision (appendRequestPath)
 import           Airship.Types
 
 -- | Parse form data uploaded with a @Content-Type@ of either
@@ -92,23 +90,6 @@ toWaiResponse Response{..} cfg trace quip =
         quipHeader  = if cfg^.includeQuipHeader == IncludeHeader
                       then [("Airship-Quip", quip)]
                       else []
-
--- | Given a 'RoutingSpec', a 404 resource, and a user state @s@, construct a WAI 'Application'.
-resourceToWai :: AirshipConfig -> RoutingSpec IO () -> Resource IO -> Wai.Application
-resourceToWai cfg routes resource404 =
-  resourceToWaiT cfg (const id) routes resource404
-
--- | Given a 'RoutingSpec', a 404 resource, and a user state @s@, construct a WAI 'Application'.
-resourceToWaiT :: Monad m => AirshipConfig -> (Request -> m Wai.Response -> IO Wai.Response) -> RoutingSpec m () -> Resource m -> Wai.Application
-resourceToWaiT cfg run routes resource404 req respond = do
-    let routeMapping = runRouter routes
-        pInfo = Wai.pathInfo req
-        (resource, (params', matched)) = route routeMapping pInfo resource404
-    nowTime <- getCurrentTime
-    quip <- getQuip
-    (=<<) respond . run req $ do
-      (response, trace) <- eitherResponse nowTime params' matched req (flow resource)
-      return $ toWaiResponse response cfg (traceHeader trace) quip
 
 getQuip :: IO ByteString
 getQuip = do

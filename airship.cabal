@@ -26,7 +26,10 @@ library
                    , Airship.Helpers
                    , Airship.Types
                    , Airship.Resource
+                   , Airship.Resource.Decision
+                   , Airship.Resource.Route
                    , Airship.Resource.Static
+                   , Airship.Resource.Wai
                    , Airship.Route
 
   other-modules:     Airship.Internal.Route

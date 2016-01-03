@@ -2,17 +2,12 @@
 {-# LANGUAGE RankNTypes        #-}
 
 module Airship
-  ( module Airship.Config
-  , module Airship.Resource
-  , module Airship.Headers
-  , module Airship.Helpers
-  , module Airship.Route
-  , module Airship.Types
+  ( module X
   ) where
 
-import           Airship.Config
-import           Airship.Headers
-import           Airship.Helpers
-import           Airship.Resource
-import           Airship.Route
-import           Airship.Types
+import           Airship.Config as X
+import           Airship.Headers as X
+import           Airship.Helpers as X
+import           Airship.Resource as X
+import           Airship.Route as X
+import           Airship.Types as X

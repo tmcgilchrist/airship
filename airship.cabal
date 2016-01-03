@@ -21,6 +21,7 @@ library
   hs-source-dirs: src
   ghc-options:  -Wall
   exposed-modules:   Airship
+                   , Airship2
                    , Airship.Config
                    , Airship.Headers
                    , Airship.Helpers
@@ -30,6 +31,10 @@ library
                    , Airship.Resource.Route
                    , Airship.Resource.Static
                    , Airship.Resource.Wai
+                   , Airship.Resource2.Data
+                   , Airship.Resource2.Decision
+                   , Airship.Resource2.Route
+                   , Airship.Resource2.Wai
                    , Airship.Route
 
   other-modules:     Airship.Internal.Route
@@ -62,6 +67,7 @@ library
                       , old-locale
                       , random
                       , text
+                      , semigroups == 0.16.*
                       , time
                       , transformers
                       , transformers-base

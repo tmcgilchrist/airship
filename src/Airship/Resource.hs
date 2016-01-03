@@ -7,7 +7,6 @@
 module Airship.Resource
     ( Resource(..)
     , PostResponse(..)
-    , serverError
     , defaultResource
     ) where
 
@@ -105,10 +104,6 @@ data Resource m =
                -- | Returns @501 Not Implemented@ if false. Default: true.
              , validContentHeaders      :: Webmachine m Bool
              }
-
--- | A helper function that terminates execution with @500 Internal Server Error@.
-serverError :: Monad m => Webmachine m a
-serverError = finishWith (Response status500 [] Empty)
 
 -- | The default Airship resource, with "sensible" values filled in for each entry.
 -- You construct new resources by extending the default resource with your own handlers.

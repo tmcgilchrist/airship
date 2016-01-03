@@ -32,6 +32,7 @@ module Airship.Types
     , putResponseBS
     , halt
     , finishWith
+    , serverError
     , (#>)
     ) where
 
@@ -61,6 +62,7 @@ import Data.Time.Clock (UTCTime)
 
 import Network.HTTP.Types ( ResponseHeaders
                           , Status
+                          , status500
                           )
 
 import qualified Network.Wai as Wai
@@ -186,6 +188,10 @@ halt status = finishWith =<< Response <$> return status <*> getResponseHeaders <
 -- | Immediately halts processing and writes the provided 'Response' back to the client.
 finishWith :: Monad m => Response -> Webmachine m a
 finishWith = Webmachine . left
+
+-- | A helper function that terminates execution with @500 Internal Server Error@.
+serverError :: Monad m => Webmachine m a
+serverError = finishWith (Response status500 [] Empty)
 
 -- | The @#>@ operator provides syntactic sugar for the construction of association lists.
 -- For example, the following assoc list:

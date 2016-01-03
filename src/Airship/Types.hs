@@ -11,6 +11,8 @@
 
 module Airship.Types
     ( ETag(..)
+    , CacheData(..)
+    , Location(..)
     , Webmachine
     , Request(..)
     , Response(..)
@@ -19,6 +21,7 @@ module Airship.Types
     , defaultRequest
     , entireRequestBody
     , etagToByteString
+    , noCacheData
     , eitherResponse
     , escapedResponse
     , runWebmachine
@@ -90,6 +93,21 @@ instance Show ETag where show = unpack . etagToByteString
 etagToByteString :: ETag -> ByteString
 etagToByteString (Strong bs) = "\"" <> bs <> "\""
 etagToByteString (Weak bs) = "W/\"" <> bs <> "\""
+
+data CacheData =
+  CacheData {
+      cacheModified :: Maybe UTCTime
+    , cacheETag :: Maybe ETag
+    } deriving (Eq, Show)
+
+noCacheData :: CacheData
+noCacheData =
+  CacheData Nothing Nothing
+
+newtype Location =
+  Location {
+      unLocation :: ByteString
+    } deriving (Eq, Show)
 
 -- | Basically Wai's unexported 'Response' type.
 data ResponseBody

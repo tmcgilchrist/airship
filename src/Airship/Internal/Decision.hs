@@ -9,7 +9,8 @@ module Airship.Internal.Decision where
 
 import           Airship.Internal.Date (parseRfc1123Date, utcTimeToRfc1123)
 import           Airship.Headers (addResponseHeader, setResponseHeader)
-import           Airship.Types ( CacheData(..)
+import           Airship.Types ( ETag(..)
+                               , CacheData(..)
                                , Location(..)
                                , ResponseBody(..)
                                , Webmachine
@@ -108,23 +109,23 @@ requestHeaderDate headerName = do
     return parsedDate
 
 preconditions :: Monad m => CacheData -> FlowStateT m ()
-preconditions (CacheData modified' _) = do
-    ifMatch'
+preconditions (CacheData modified' etag) = do
+    ifMatch' etag
     ifUnmodifiedSince' modified'
-    ifNoneMatch'
+    ifNoneMatch' etag
     ifModifiedSince' modified'
 
-ifMatch' :: Monad m => FlowStateT m ()
-ifMatch' =
-    g08 >>= traverse_ (g09 >=> traverse_ g11)
+ifMatch' :: Monad m => Maybe ETag -> FlowStateT m ()
+ifMatch' etag =
+    g08 >>= traverse_ (g09 >=> traverse_ (g11 etag))
 
 ifUnmodifiedSince' :: Monad m => Maybe UTCTime -> FlowStateT m ()
 ifUnmodifiedSince' lastModified =
     h10 >>= traverse_ (h11 >=> traverse_ (h12 lastModified))
 
-ifNoneMatch' :: Monad m => FlowStateT m ()
-ifNoneMatch' =
-    i12 >>= traverse_ (i13 >=> maybe j18 (k13 >=> flip unless j18))
+ifNoneMatch' :: Monad m => Maybe ETag -> FlowStateT m ()
+ifNoneMatch' etag =
+    i12 >>= traverse_ (i13 >=> maybe j18 (k13 etag >=> flip unless j18))
 
 ifModifiedSince' :: Monad m => Maybe UTCTime -> FlowStateT m ()
 ifModifiedSince' lastModified = do
@@ -308,11 +309,11 @@ f06 = do
 -- G column
 ------------------------------------------------------------------------------
 
-g11 :: Monad m => IfMatch -> FlowStateT m ()
-g11 (IfMatch ifMatch) = do
+g11 :: Monad m => Maybe ETag -> IfMatch -> FlowStateT m ()
+g11 etag (IfMatch ifMatch) = do
     trace "g11"
     let etags = parseEtagList ifMatch
-    if null etags
+    if any (flip F.elem etag) etags
         then lift $ halt HTTP.status412
         else return ()
 
@@ -432,10 +433,10 @@ j18 = do
 -- K column
 ------------------------------------------------------------------------------
 
-k13 :: Monad m => IfNoneMatch -> FlowStateT m Bool
-k13 (IfNoneMatch ifNoneMatch) = do
+k13 :: Monad m => Maybe ETag -> IfNoneMatch -> FlowStateT m Bool
+k13 etag (IfNoneMatch ifNoneMatch) = do
     trace "k13"
-    return . null $ parseEtagList ifNoneMatch
+    return . any (flip F.elem etag) $ parseEtagList ifNoneMatch
 
 k07 :: Monad m => Bool -> FlowStateT m Bool
 k07 prevExisted = do

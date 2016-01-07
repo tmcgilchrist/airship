@@ -64,7 +64,7 @@ accountResource = do
           , contentTypesAccepted = ("text/plain", Plain) :| []
           , contentTypesProvided = ("text/plain", Plain) :| []
           }
-    resource rd . return . Right $ \_ accept -> do
+    resource rd . return . Right $ \contentType accept -> do
         accountName <- lookupParam "name"
         s <- lift get
         m <- liftIO (readMVar (_getState s))
@@ -78,7 +78,7 @@ accountResource = do
                     MOther run ->
                         run MOtherNotFound
                     MPut run -> do
-                        val <- lift readBody
+                        val <- case contentType of Plain -> lift readBody
                         liftIO (modifyMVar_ (_getState s) (return . HM.insert accountName val))
                         run . MPutOk cache . ok $ Empty
             Just val ->
@@ -86,18 +86,17 @@ accountResource = do
                     ROther run -> case accept of
                         Plain ->
                             run . ok $ ResponseBuilder (fromHtmlEscapedText (pack (show val) <> "\n"))
-                    RPut run -> case accept of
-                        Plain -> do
-                            val' <- lift readBody
-                            liftIO (modifyMVar_ (_getState s) (return . HM.insert accountName val'))
-                            run . RPutOk . ok $ Empty
+                    RPut run -> do
+                        val' <- case accept of Plain -> lift readBody
+                        liftIO (modifyMVar_ (_getState s) (return . HM.insert accountName val'))
+                        run . RPutOk . ok $ Empty
                     -- POST'ing to this resource adds the integer to the current value
-                    RPost run -> case accept of
-                        Plain -> do
-                            val' <- lift readBody
-                            liftIO (modifyMVar_ (_getState s) (return . HM.insertWith (+) accountName val'))
-                            run . RPostOk . ok $ Empty
-                    RDelete _ -> lift serverError
+                    RPost run -> do
+                        val' <- case accept of Plain -> lift readBody
+                        liftIO (modifyMVar_ (_getState s) (return . HM.insertWith (+) accountName val'))
+                        run . RPostOk . ok $ Empty
+                    RDelete _ ->
+                        lift serverError
 
 resource404 :: Monad m => Resource m
 resource404 = do

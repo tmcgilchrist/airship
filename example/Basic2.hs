@@ -87,12 +87,12 @@ accountResource = do
                         Plain ->
                             run . ok $ ResponseBuilder (fromHtmlEscapedText (pack (show val) <> "\n"))
                     RPut run -> do
-                        val' <- case accept of Plain -> lift readBody
+                        val' <- case contentType of Plain -> lift readBody
                         liftIO (modifyMVar_ (_getState s) (return . HM.insert accountName val'))
                         run . RPutOk . ok $ Empty
                     -- POST'ing to this resource adds the integer to the current value
                     RPost run -> do
-                        val' <- case accept of Plain -> lift readBody
+                        val' <- case contentType of Plain -> lift readBody
                         liftIO (modifyMVar_ (_getState s) (return . HM.insertWith (+) accountName val'))
                         run . RPostOk . ok $ Empty
                     RDelete _ ->

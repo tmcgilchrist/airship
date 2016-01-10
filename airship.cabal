@@ -80,5 +80,6 @@ test-suite unit
                , tasty-quickcheck >= 0.8.3   && < 0.8.5
                , tasty-hunit        >= 0.9.1 && < 0.10
                , transformers
-               , wai == 3.0.*
+               , wai >= 3.0 && < 3.3
+
   ghc-options: -Wall -threaded -O1 -fno-warn-orphans

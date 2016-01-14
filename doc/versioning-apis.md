@@ -28,7 +28,6 @@ json response.
     dirigibleResourceV1 :: (Applicative m, MonadIO m) => Resource State m
     dirigibleResourceV1 = defaultResource {
         allowedMethods = return [ HTTP.methodGet ]
-        , knownContentType = contentTypeMatches ["application/json"]
         , contentTypesProvided = return [("application/json", handleJsonV1)]
     }
 
@@ -36,7 +35,6 @@ json response.
     dirigibleResourceV2 :: (Applicative m, MonadIO m) => Resource State m
     dirigibleResourceV2 = defaultResource {
         allowedMethods = return [ HTTP.methodGet ]
-      , knownContentType = contentTypeMatches ["application/json"]
       , contentTypesProvided = return [("application/json", handleJsonV2)]
     }
 
@@ -64,7 +62,6 @@ Then within the resource we handle both versions.
     dirigibleResource :: (Applicative m, MonadIO m) => Resource State m
     dirigibleResource = defaultResource {
         allowedMethods = return [ HTTP.methodGet ]
-      , knownContentType = contentTypeMatches ["application/json"]
       , knownContentTypes = contentTypesProvided ["application/v1+json", "application/v2+json"]
       , contentTypesProvided = return [ ("application/v1+json", handleJsonV1)
                                       , ("application/v2+json", handleJsonV2)]

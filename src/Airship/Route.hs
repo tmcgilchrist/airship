@@ -1,6 +1,5 @@
 module Airship.Route
     ( Route
-    , RoutingSpec
     , root
     , var
     , star

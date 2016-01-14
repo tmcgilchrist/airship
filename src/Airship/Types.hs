@@ -11,6 +11,8 @@
 
 module Airship.Types
     ( ETag(..)
+    , CacheData(..)
+    , Location(..)
     , Webmachine
     , Request(..)
     , Response(..)
@@ -19,6 +21,7 @@ module Airship.Types
     , defaultRequest
     , entireRequestBody
     , etagToByteString
+    , noCacheData
     , eitherResponse
     , escapedResponse
     , runWebmachine
@@ -32,6 +35,7 @@ module Airship.Types
     , putResponseBS
     , halt
     , finishWith
+    , serverError
     , (#>)
     ) where
 
@@ -61,6 +65,7 @@ import Data.Time.Clock (UTCTime)
 
 import Network.HTTP.Types ( ResponseHeaders
                           , Status
+                          , status500
                           )
 
 import qualified Network.Wai as Wai
@@ -88,6 +93,21 @@ instance Show ETag where show = unpack . etagToByteString
 etagToByteString :: ETag -> ByteString
 etagToByteString (Strong bs) = "\"" <> bs <> "\""
 etagToByteString (Weak bs) = "W/\"" <> bs <> "\""
+
+data CacheData =
+  CacheData {
+      cacheModified :: Maybe UTCTime
+    , cacheETag :: Maybe ETag
+    } deriving (Eq, Show)
+
+noCacheData :: CacheData
+noCacheData =
+  CacheData Nothing Nothing
+
+newtype Location =
+  Location {
+      unLocation :: ByteString
+    } deriving (Eq, Show)
 
 -- | Basically Wai's unexported 'Response' type.
 data ResponseBody
@@ -186,6 +206,10 @@ halt status = finishWith =<< Response <$> return status <*> getResponseHeaders <
 -- | Immediately halts processing and writes the provided 'Response' back to the client.
 finishWith :: Monad m => Response -> Webmachine m a
 finishWith = Webmachine . left
+
+-- | A helper function that terminates execution with @500 Internal Server Error@.
+serverError :: Monad m => Webmachine m a
+serverError = finishWith (Response status500 [] Empty)
 
 -- | The @#>@ operator provides syntactic sugar for the construction of association lists.
 -- For example, the following assoc list:

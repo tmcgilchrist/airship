@@ -1,22 +1,20 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE ImpredicativeTypes #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Airship.Internal.Decision
-    ( flow
-    , appendRequestPath
-    ) where
+module Airship.Internal.Decision where
 
 import           Airship.Internal.Date (parseRfc1123Date, utcTimeToRfc1123)
-import           Airship.Headers (addResponseHeader)
-import           Airship.Types ( Response(..)
+import           Airship.Headers (addResponseHeader, setResponseHeader)
+import           Airship.Types ( ETag(..)
+                               , CacheData(..)
+                               , Location(..)
                                , ResponseBody(..)
                                , Webmachine
                                , etagToByteString
-                               , getResponseBody
-                               , getResponseHeaders
                                , halt
                                , pathInfo
                                , putResponseBody
@@ -25,19 +23,18 @@ import           Airship.Types ( Response(..)
                                , requestMethod
                                , requestTime )
 
-import           Airship.Resource(Resource(..), PostResponse(..))
 import           Airship.Internal.Parsers (parseEtagList)
 #if __GLASGOW_HASKELL__ < 710
 import           Control.Applicative ((<$>))
 #endif
-import           Control.Monad (when)
+import           Control.Monad ((>=>), unless, when)
 import           Control.Monad.Trans (lift)
-import           Control.Monad.Trans.State.Strict (StateT(..), evalStateT,
-                                                   get, modify)
+import           Control.Monad.Trans.State.Strict (StateT(..))
 import           Control.Monad.Writer.Class (tell)
 
 import           Blaze.ByteString.Builder (toByteString)
-import           Data.Maybe (isJust)
+import           Data.Foldable (traverse_)
+import qualified Data.Foldable as F
 import           Data.Text (Text)
 import           Data.Time.Clock (UTCTime)
 import           Data.ByteString                  (ByteString, intercalate)
@@ -71,18 +68,8 @@ hIfNoneMatch = "If-None-Match"
 -- tree
 ------------------------------------------------------------------------------
 
-data FlowState m = FlowState
-    { _contentType :: Maybe (MediaType, Webmachine m ResponseBody) }
+type FlowStateT m = StateT () (Webmachine m)
 
-type FlowStateT m a = StateT (FlowState m) (Webmachine m) a
-
-type Flow m = Resource m -> FlowStateT m Response
-
-initFlowState :: FlowState m
-initFlowState = FlowState Nothing
-
-flow :: Monad m => Resource m -> Webmachine m Response
-flow r = evalStateT (b13 r) initFlowState
 
 trace :: Monad m => Text -> FlowStateT m ()
 trace t = lift $ tell [t]
@@ -93,22 +80,19 @@ trace t = lift $ tell [t]
 
 newtype IfMatch = IfMatch ByteString
 newtype IfNoneMatch = IfNoneMatch ByteString
+newtype IfModifiedSinceHeader = IfModifiedSinceHeader ByteString
+newtype IfModifiedSince = IfModifiedSince UTCTime
+newtype IfUnmodifiedSinceHeader = IfUnmodifiedSinceHeader ByteString
+newtype IfUnmodifiedSince = IfUnmodifiedSince UTCTime
+
+newtype AcceptHeader = AcceptHeader ByteString
+newtype AcceptLanguage = AcceptLanguage ByteString
+newtype AcceptCharset = AcceptCharset ByteString
+newtype AcceptEncoding = AcceptEncoding ByteString
 
 ------------------------------------------------------------------------------
 -- Decision Helpers
 ------------------------------------------------------------------------------
-
-negotiateContentTypesAccepted :: Monad m => Resource m -> FlowStateT m ()
-negotiateContentTypesAccepted Resource{..} = do
-    req <- lift request
-    accepted <- lift contentTypesAccepted
-    let reqHeaders = requestHeaders req
-        result = do
-            cType <- lookup HTTP.hContentType reqHeaders
-            mapContentMedia accepted cType
-    case result of
-        (Just process) -> lift process
-        Nothing -> lift $ halt HTTP.status415
 
 appendRequestPath :: Monad m => [Text] -> Webmachine m ByteString
 appendRequestPath ts = do
@@ -124,52 +108,42 @@ requestHeaderDate headerName = do
         parsedDate = dateHeader >>= parseRfc1123Date
     return parsedDate
 
-writeCacheTags :: Monad m => Resource m -> FlowStateT m ()
-writeCacheTags Resource{..} = lift $ do
-    etag <- generateETag
-    case etag of
-       Nothing -> return ()
-       Just t  -> addResponseHeader ("ETag", etagToByteString t)
-    modified <- lastModified
-    case modified of
-       Nothing -> return ()
-       Just d  -> addResponseHeader ("Last-Modified", utcTimeToRfc1123 d)
+preconditions :: Monad m => CacheData -> FlowStateT m ()
+preconditions (CacheData modified' etag) = do
+    ifMatch' etag
+    ifUnmodifiedSince' modified'
+    ifNoneMatch' etag
+    ifModifiedSince' modified'
 
-------------------------------------------------------------------------------
--- Type definitions for all decision nodes
-------------------------------------------------------------------------------
+ifMatch' :: Monad m => Maybe ETag -> FlowStateT m ()
+ifMatch' etag =
+    g08 >>= traverse_ (g09 >=> traverse_ (g11 etag))
 
-b13, b12, b11, b10, b09, b08, b07, b06, b05, b04, b03 :: Monad m => Flow  m
-c04, c03 :: Monad m => Flow  m
-d05, d04 :: Monad m => Flow  m
-e06, e05 :: Monad m => Flow  m
-f07, f06 :: Monad m => Flow  m
-g11, g09 :: Monad m => IfMatch -> Flow m
-g08, g07 :: Monad m => Flow  m
-h12, h11, h10, h07 :: Monad m => Flow  m
-i13 :: Monad m => IfNoneMatch -> Flow m
-i12, i07, i04 :: Monad m => Flow  m
-j18 :: Monad m => Flow  m
-k13 :: Monad m => IfNoneMatch -> Flow m
-k07, k05 :: Monad m => Flow  m
-l17, l15, l14, l13, l07, l05 :: Monad m => Flow  m
-m20, m16, m07, m05 :: Monad m => Flow  m
-n16, n11, n05 :: Monad m => Flow  m
-o20, o18, o16, o14 :: Monad m => Flow  m
-p11, p03 :: Monad m => Flow  m
+ifUnmodifiedSince' :: Monad m => Maybe UTCTime -> FlowStateT m ()
+ifUnmodifiedSince' lastModified =
+    h10 >>= traverse_ (h11 >=> traverse_ (h12 lastModified))
+
+ifNoneMatch' :: Monad m => Maybe ETag -> FlowStateT m ()
+ifNoneMatch' etag =
+    i12 >>= traverse_ (i13 >=> maybe j18 (k13 etag >=> flip unless j18))
+
+ifModifiedSince' :: Monad m => Maybe UTCTime -> FlowStateT m ()
+ifModifiedSince' lastModified = do
+    l13 >>= traverse_ (l14 >=> traverse_ (\ims -> l15 ims >>= flip unless (l17 lastModified ims)))
 
 ------------------------------------------------------------------------------
 -- B column
 ------------------------------------------------------------------------------
 
-b13 r@Resource{..} = do
+b13 :: Monad m => Bool -> FlowStateT m ()
+b13 available = do
     trace "b13"
-    available <- lift serviceAvailable
     if available
-        then b12 r
+        then return ()
         else lift $ halt HTTP.status503
 
-b12 r@Resource{..} = do
+b12 :: Monad m => FlowStateT m ()
+b12 = do
     trace "b12"
     -- known method
     req <- lift request
@@ -184,89 +158,89 @@ b12 r@Resource{..} = do
                        , HTTP.methodPatch
                        ]
     if requestMethod req `elem` knownMethods
-        then b11 r
+        then return ()
         else lift $ halt HTTP.status501
 
-b11 r@Resource{..} = do
+b11 :: Monad m => Bool -> FlowStateT m ()
+b11 long = do
     trace "b11"
-    long <- lift uriTooLong
     if long
         then lift $ halt HTTP.status414
-        else b10 r
+        else return ()
 
-b10 r@Resource{..} = do
+b10 :: Monad m => [HTTP.Method] -> FlowStateT m ()
+b10 allowed = do
     trace "b10"
     req <- lift request
-    allowed <- lift allowedMethods
     if requestMethod req `elem` allowed
-        then b09 r
+        then return ()
         else do
             lift $ addResponseHeader ("Allow",  intercalate "," allowed)
             lift $ halt HTTP.status405
 
-b09 r@Resource{..} = do
+b09 :: Monad m => Bool -> FlowStateT m ()
+b09 malformed = do
     trace "b09"
-    malformed <- lift malformedRequest
     if malformed
         then lift $ halt HTTP.status400
-        else b08 r
+        else return ()
 
-b08 r@Resource{..} = do
+b08 :: Monad m => Bool -> FlowStateT m ()
+b08 authorized = do
     trace "b08"
-    authorized <- lift isAuthorized
     if authorized
-        then b07 r
+        then return ()
         else lift $ halt HTTP.status401
 
-b07 r@Resource{..} = do
+b07 :: Monad m => Bool -> FlowStateT m ()
+b07 forbid = do
     trace "b07"
-    forbid <- lift forbidden
     if forbid
         then lift $ halt HTTP.status403
-        else b06 r
+        else return ()
 
-b06 r@Resource{..} = do
+b06 :: Monad m => Bool -> FlowStateT m ()
+b06 validC = do
     trace "b06"
-    validC <- lift validContentHeaders
     if validC
-        then b05 r
+        then return ()
         else lift $ halt HTTP.status501
 
-b05 r@Resource{..} = do
+b05 :: Monad m => [(MediaType, a)] -> FlowStateT m (Maybe a)
+b05 known = do
     trace "b05"
-    known <- lift knownContentType
-    if known
-        then b04 r
-        else lift $ halt HTTP.status415
+    headers <- requestHeaders <$> lift request
+    case lookup HTTP.hContentType headers of
+        Nothing -> return Nothing
+        Just t -> case mapAcceptMedia known t of
+            Just a -> return $ Just a
+            Nothing -> lift $ halt HTTP.status415
 
-b04 r@Resource{..} = do
+b04 :: Monad m => Bool-> FlowStateT m ()
+b04 large = do
     trace "b04"
-    large <- lift entityTooLarge
     if large
         then lift $ halt HTTP.status413
-        else b03 r
+        else return ()
 
-b03 r@Resource{..} = do
+b03 :: Monad m => [HTTP.Method] -> FlowStateT m ()
+b03 allowed = do
     trace "b03"
     req <- lift request
-    allowed <- lift allowedMethods
     if requestMethod req == HTTP.methodOptions
         then do
             lift $ addResponseHeader ("Allow",  intercalate "," allowed)
             lift $ halt HTTP.status204
-        else c03 r
+        else return ()
 
 ------------------------------------------------------------------------------
 -- C column
 ------------------------------------------------------------------------------
 
-c04 r@Resource{..} = do
+c04 :: Monad m => AcceptHeader -> [(MediaType, a)] -> FlowStateT m (MediaType, a)
+c04 (AcceptHeader acceptStr) provided = do
     trace "c04"
-    req <- lift request
-    provided <- lift contentTypesProvided
-    let reqHeaders = requestHeaders req
-        result = do
-            acceptStr <- lookup HTTP.hAccept reqHeaders
+    let result = do
             (acceptTyp, resource) <- mapAcceptMedia provided' acceptStr
             Just (acceptTyp, resource)
             where
@@ -277,152 +251,125 @@ c04 r@Resource{..} = do
                 dupContentType (a, b) = (a, (a, b))
 
     case result of
-      Nothing -> lift $ halt HTTP.status406
-      Just res -> do
-        modify (\fs -> fs { _contentType = Just res })
-        d04 r
+        Nothing -> lift $ halt HTTP.status406
+        Just res ->
+            return res
 
-c03 r@Resource{..} = do
+c03 :: Monad m => FlowStateT m (Maybe AcceptHeader)
+c03 = do
     trace "c03"
-    req <- lift request
-    let reqHeaders = requestHeaders req
-    case lookup HTTP.hAccept reqHeaders of
-        (Just _h) ->
-            c04 r
-        Nothing ->
-            d04 r
+    fmap AcceptHeader . lookup HTTP.hAccept . requestHeaders <$> lift request
 
 ------------------------------------------------------------------------------
 -- D column
 ------------------------------------------------------------------------------
 
-d05 r@Resource{..} = do
+d05 :: Monad m => Bool -> FlowStateT m ()
+d05 langAvailable = do
     trace "d05"
-    langAvailable <- lift languageAvailable
     if langAvailable
-        then e05 r
+        then return ()
         else lift $ halt HTTP.status406
 
-d04 r@Resource{..} = do
+d04 :: Monad m => FlowStateT m (Maybe AcceptLanguage)
+d04 = do
     trace "d04"
-    req <- lift request
-    let reqHeaders = requestHeaders req
-    case lookup HTTP.hAcceptLanguage reqHeaders of
-        (Just _h) ->
-            d05 r
-        Nothing ->
-            e05 r
+    fmap AcceptLanguage . lookup HTTP.hAcceptLanguage . requestHeaders <$> lift request
 
 ------------------------------------------------------------------------------
 -- E column
 ------------------------------------------------------------------------------
 
-e06 r@Resource{..} = do
+e06 :: Monad m => AcceptCharset -> FlowStateT m ()
+e06 (AcceptCharset _) = do
     trace "e06"
     -- TODO: charset negotiation
-    f06 r
+    return ()
 
-e05 r@Resource{..} = do
+e05 :: Monad m => FlowStateT m (Maybe AcceptCharset)
+e05 = do
     trace "e05"
-    req <- lift request
-    let reqHeaders = requestHeaders req
-    case lookup hAcceptCharset reqHeaders of
-        (Just _h) ->
-            e06 r
-        Nothing ->
-            f06 r
+    fmap AcceptCharset . lookup hAcceptCharset . requestHeaders <$> lift request
+
 
 ------------------------------------------------------------------------------
 -- F column
 ------------------------------------------------------------------------------
 
-f07 r@Resource{..} = do
+f07 :: Monad m => AcceptEncoding -> FlowStateT m ()
+f07 (AcceptEncoding _) = do
     trace "f07"
     -- TODO: encoding negotiation
-    g07 r
+    return ()
 
-f06 r@Resource{..} = do
+f06 :: Monad m => FlowStateT m (Maybe AcceptEncoding)
+f06 = do
     trace "f06"
     req <- lift request
-    let reqHeaders = requestHeaders req
-    case lookup hAcceptEncoding reqHeaders of
-        (Just _h) ->
-            f07 r
-        Nothing ->
-            g07 r
+    return . fmap AcceptEncoding . lookup hAcceptEncoding . requestHeaders $ req
 
 ------------------------------------------------------------------------------
 -- G column
 ------------------------------------------------------------------------------
 
-g11 (IfMatch ifMatch) r@Resource{..} = do
+g11 :: Monad m => Maybe ETag -> IfMatch -> FlowStateT m ()
+g11 etag (IfMatch ifMatch) = do
     trace "g11"
     let etags = parseEtagList ifMatch
-    if null etags
+    if any (flip F.elem etag) etags
         then lift $ halt HTTP.status412
-        else h10 r
+        else return ()
 
-g09 ifMatch r@Resource{..} = do
+g09 :: Monad m => IfMatch -> FlowStateT m (Maybe IfMatch)
+g09 ifMatch = do
     trace "g09"
     case ifMatch of
         -- TODO: should we be stripping whitespace here?
         (IfMatch "*") ->
-            h10 r
+            return Nothing
         _ ->
-            g11 ifMatch r
+            return $ Just ifMatch
 
-g08 r@Resource{..} = do
+g08 :: Monad m => FlowStateT m (Maybe IfMatch)
+g08 = do
     trace "g08"
     req <- lift request
     let reqHeaders = requestHeaders req
-    case IfMatch <$> lookup hIfMatch reqHeaders of
-        (Just h) ->
-            g09 h r
-        Nothing ->
-            h10 r
+    return $ IfMatch <$> lookup hIfMatch reqHeaders
 
-g07 r@Resource{..} = do
+g07 :: Monad m => Bool -> FlowStateT m Bool
+g07 exists = do
     trace "g07"
     -- TODO: set Vary headers
-    exists <- lift resourceExists
-    if exists
-        then g08 r
-        else h07 r
+    return exists
 
 ------------------------------------------------------------------------------
 -- H column
 ------------------------------------------------------------------------------
 
-h12 r@Resource{..} = do
+h12 :: Monad m => Maybe UTCTime -> IfUnmodifiedSince -> FlowStateT m ()
+h12 modified (IfUnmodifiedSince headerDate) = do
     trace "h12"
-    modified <- lift lastModified
-    parsedDate <- lift $ requestHeaderDate hIfUnmodifiedSince
     let maybeGreater = do
             lastM <- modified
-            headerDate <- parsedDate
             return (lastM > headerDate)
     if maybeGreater == Just True
         then lift $ halt HTTP.status412
-        else i12 r
+        else return ()
 
-h11 r@Resource{..} = do
+h11 :: Monad m => IfUnmodifiedSinceHeader -> FlowStateT m (Maybe IfUnmodifiedSince)
+h11 (IfUnmodifiedSinceHeader header) = do
     trace "h11"
-    parsedDate <- lift $ requestHeaderDate hIfUnmodifiedSince
-    if isJust parsedDate
-        then h12 r
-        else i12 r
+    return . fmap IfUnmodifiedSince $ parseRfc1123Date header
 
-h10 r@Resource{..} = do
+h10 :: Monad m => FlowStateT m (Maybe IfUnmodifiedSinceHeader)
+h10 = do
     trace "h10"
     req <- lift request
-    let reqHeaders = requestHeaders req
-    case lookup hIfUnmodifiedSince reqHeaders of
-        (Just _h) ->
-            h11 r
-        Nothing ->
-            i12 r
+    return . fmap IfUnmodifiedSinceHeader . lookup hIfUnmodifiedSince $ requestHeaders req
 
-h07 r@Resource {..} = do
+h07 :: Monad m => FlowStateT m ()
+h07 = do
     trace "h07"
     req <- lift request
     let reqHeaders = requestHeaders req
@@ -431,53 +378,51 @@ h07 r@Resource {..} = do
         (Just "*") ->
             lift $ halt HTTP.status412
         _ ->
-            i07 r
+          return ()
 
 ------------------------------------------------------------------------------
 -- I column
 ------------------------------------------------------------------------------
 
-i13 ifNoneMatch r@Resource{..} = do
+i13 :: Monad m => IfNoneMatch -> FlowStateT m (Maybe IfNoneMatch)
+i13 ifNoneMatch = do
     trace "i13"
     case ifNoneMatch of
         -- TODO: should we be stripping whitespace here?
         (IfNoneMatch "*") ->
-            j18 r
+            return Nothing
         _ ->
-            k13 ifNoneMatch r
+            return $ Just ifNoneMatch
 
-i12 r@Resource{..} = do
+i12 :: Monad m => FlowStateT m (Maybe IfNoneMatch)
+i12 = do
     trace "i12"
     req <- lift request
     let reqHeaders = requestHeaders req
-    case IfNoneMatch <$> lookup hIfNoneMatch reqHeaders of
-        (Just h) ->
-            i13 h r
-        Nothing ->
-            l13 r
+    return $ IfNoneMatch <$> lookup hIfNoneMatch reqHeaders
 
-i07 r = do
+i07 :: Monad m => FlowStateT m Bool
+i07 = do
     trace "i07"
     req <- lift request
-    if requestMethod req == HTTP.methodPut
-        then i04 r
-        else k07 r
+    return $ requestMethod req == HTTP.methodPut
 
-i04 r@Resource{..} = do
+i04 :: Monad m => Maybe Location -> FlowStateT m ()
+i04 moved = do
     trace "i04"
-    moved <- lift movedPermanently
     case moved of
-        (Just loc) -> do
+        Just (Location loc) -> do
             lift $ addResponseHeader ("Location", loc)
             lift $ halt HTTP.status301
         Nothing ->
-            p03 r
+            return ()
 
 ------------------------------------------------------------------------------
 -- J column
 ------------------------------------------------------------------------------
 
-j18 _ = do
+j18 :: Monad m => FlowStateT m a
+j18 = do
     trace "j18"
     req <- lift request
     let getOrHead = [ HTTP.methodGet
@@ -491,236 +436,199 @@ j18 _ = do
 -- K column
 ------------------------------------------------------------------------------
 
-k13 (IfNoneMatch ifNoneMatch) r@Resource{..} = do
+k13 :: Monad m => Maybe ETag -> IfNoneMatch -> FlowStateT m Bool
+k13 etag (IfNoneMatch ifNoneMatch) = do
     trace "k13"
-    let etags = parseEtagList ifNoneMatch
-    if null etags
-        then l13 r
-        else j18 r
+    return . any (flip F.elem etag) $ parseEtagList ifNoneMatch
 
-k07 r@Resource{..} = do
+k07 :: Monad m => Bool -> FlowStateT m Bool
+k07 prevExisted = do
     trace "k07"
-    prevExisted <- lift previouslyExisted
-    if prevExisted
-        then k05 r
-        else l07 r
+    return prevExisted
 
-k05 r@Resource{..} = do
+k05 :: Monad m => Maybe Location -> FlowStateT m ()
+k05 moved = do
     trace "k05"
-    moved <- lift movedPermanently
     case moved of
-        (Just loc) -> do
+        Just (Location loc) -> do
             lift $ addResponseHeader ("Location", loc)
             lift $ halt HTTP.status301
         Nothing ->
-            l05 r
+            return ()
 
 ------------------------------------------------------------------------------
 -- L column
 ------------------------------------------------------------------------------
 
-l17 r@Resource{..} = do
+l17 :: Monad m => Maybe UTCTime -> IfModifiedSince -> FlowStateT m ()
+l17 modified (IfModifiedSince ifModifiedSince) = do
     trace "l17"
-    parsedDate <- lift $ requestHeaderDate HTTP.hIfModifiedSince
-    modified <- lift lastModified
     let maybeGreater = do
             lastM <- modified
-            ifModifiedSince <- parsedDate
             return (lastM > ifModifiedSince)
     if maybeGreater == Just True
-        then m16 r
+        then return ()
         else lift $ halt HTTP.status304
 
-l15 r@Resource{..} = do
+l15 :: Monad m => IfModifiedSince -> FlowStateT m Bool
+l15 (IfModifiedSince ifModifiedSince) = do
     trace "l15"
-    parsedDate <- lift $ requestHeaderDate HTTP.hIfModifiedSince
     now <- lift requestTime
-    let maybeGreater = (> now) <$> parsedDate
-    if maybeGreater == Just True
-        then m16 r
-        else l17 r
+    return $ ifModifiedSince > now
 
-l14 r@Resource{..} = do
+l14 :: Monad m => IfModifiedSinceHeader -> FlowStateT m (Maybe IfModifiedSince)
+l14 (IfModifiedSinceHeader dateHeader) = do
     trace "l14"
-    req <- lift request
-    let reqHeaders = requestHeaders req
-        dateHeader = lookup HTTP.hIfModifiedSince reqHeaders
-        validDate = isJust (dateHeader >>= parseRfc1123Date)
-    if validDate
-        then l15 r
-        else m16 r
+    return . fmap IfModifiedSince . parseRfc1123Date $ dateHeader
 
-l13 r@Resource{..} = do
+l13 :: Monad m => FlowStateT m (Maybe IfModifiedSinceHeader)
+l13 = do
     trace "l13"
     req <- lift request
     let reqHeaders = requestHeaders req
-    case lookup HTTP.hIfModifiedSince reqHeaders of
-        (Just _h) ->
-            l14 r
-        Nothing ->
-            m16 r
+    return . fmap IfModifiedSinceHeader $ lookup HTTP.hIfModifiedSince reqHeaders
 
-l07 r = do
+l07 :: Monad m => FlowStateT m ()
+l07 = do
     trace "l07"
     req <- lift request
     if requestMethod req == HTTP.methodPost
-        then m07 r
+        then return ()
         else lift $ halt HTTP.status404
 
-l05 r@Resource{..} = do
+l05 :: Monad m => Maybe Location -> FlowStateT m ()
+l05 moved = do
     trace "l05"
-    moved <- lift movedTemporarily
     case moved of
-        (Just loc) -> do
+        Just (Location loc) -> do
             lift $ addResponseHeader ("Location", loc)
             lift $ halt HTTP.status307
         Nothing ->
-            m05 r
+            return ()
 
 ------------------------------------------------------------------------------
 -- M column
 ------------------------------------------------------------------------------
 
-m20 r@Resource{..} = do
+m20 :: Monad m => Bool -> FlowStateT m ()
+m20 completed = do
     trace "m20"
-    deleteAccepted <- lift deleteResource
-    if deleteAccepted
-        then do
-            completed <- lift deleteCompleted
-            if completed
-                then o20 r
-                else lift $ halt HTTP.status202
-        else lift $ halt HTTP.status500
+    if completed
+        then return ()
+        else lift $ halt HTTP.status202
 
-m16 r = do
+m16 :: Monad m => FlowStateT m Bool
+m16 = do
     trace "m16"
     req <- lift request
-    if requestMethod req == HTTP.methodDelete
-        then m20 r
-        else n16 r
+    return $ requestMethod req == HTTP.methodDelete
 
-m07 r@Resource{..} = do
+m07 :: Monad m => Bool -> FlowStateT m ()
+m07 allowMissing = do
     trace "m07"
-    allowMissing <- lift allowMissingPost
     if allowMissing
-        then n11 r
+        then return ()
         else lift $ halt HTTP.status404
 
-m05 r = do
+m05 :: Monad m => FlowStateT m ()
+m05 = do
     trace "m05"
     req <- lift request
     if requestMethod req == HTTP.methodPost
-        then n05 r
+        then return ()
         else lift $ halt HTTP.status410
 
 ------------------------------------------------------------------------------
 -- N column
 ------------------------------------------------------------------------------
 
-n16 r = do
+n16 :: Monad m => FlowStateT m Bool
+n16 = do
     trace "n16"
     req <- lift request
-    if requestMethod req == HTTP.methodPost
-        then n11 r
-        else o16 r
+    return $ requestMethod req == HTTP.methodPost
 
-n11 r@Resource{..} = trace "n11" >> lift processPost >>= flip processPostAction r
+n11 :: Monad m => Maybe Location -> FlowStateT m ()
+n11 location = do
+    trace "n11"
+    case location of
+        Just (Location loc) -> do
+            lift $ setResponseHeader (HTTP.hLocation, loc)
+            lift $ halt HTTP.status303
+        _ ->
+            return ()
 
-create :: Monad m => [Text] -> Resource m -> FlowStateT m ()
-create ts r = do
-    loc <- lift (appendRequestPath ts)
-    lift (addResponseHeader ("Location", loc))
-    negotiateContentTypesAccepted r
-
-processPostAction :: Monad m => PostResponse m -> Flow  m
-processPostAction (PostCreate ts) r = do
-    create ts r
-    p11 r
-processPostAction (PostCreateRedirect ts) r = do
-    create ts r
-    lift $ halt HTTP.status303
-processPostAction (PostProcess p) r =
-    lift p >> p11 r
-processPostAction (PostProcessRedirect ts) _r = do
-    locBs <- lift ts
-    lift $ addResponseHeader ("Location", locBs)
-    lift $ halt HTTP.status303
-
-n05 r@Resource{..} = do
+n05 :: Monad m => Bool -> FlowStateT m ()
+n05 allow = do
     trace "n05"
-    allow <- lift allowMissingPost
     if allow
-        then n11 r
+        then return ()
         else lift $ halt HTTP.status410
 
 ------------------------------------------------------------------------------
 -- O column
 ------------------------------------------------------------------------------
 
-o20 r = do
+o20 :: Monad m => ResponseBody -> FlowStateT m ()
+o20 body = do
     trace "o20"
-    body <- lift getResponseBody
     -- ResponseBody is a little tough to make an instance of 'Eq',
     -- so we just use a pattern match
     case body of
         Empty   -> lift $ halt HTTP.status204
-        _       -> o18 r
+        _       -> return ()
 
-o18 r@Resource{..} = do
+o18 :: Monad m => Bool -> CacheData -> MediaType -> Webmachine m ResponseBody -> FlowStateT m a
+o18 multiple (CacheData modified' etag') cType body' = do
     trace "o18"
-    multiple <- lift multipleChoices
     if multiple
+        -- TODO I believe this can/should also set the body
         then lift $ halt HTTP.status300
         else do
+            body <- lift body'
             -- TODO: set etag, expiration, etc. headers
             req <- lift request
             let getOrHead = [ HTTP.methodGet
                             , HTTP.methodHead
                             ]
             when (requestMethod req `elem` getOrHead) $ do
-                m <- _contentType <$> get
-                (cType, body) <- case m of
-                    Nothing -> do
-                        provided <- lift contentTypesProvided
-                        return (head provided)
-                    Just (cType, body) ->
-                        return (cType, body)
-                b <- lift body
-                lift $ putResponseBody b
+                lift $ putResponseBody body
                 lift $ addResponseHeader ("Content-Type", renderHeader cType)
-            writeCacheTags r
+            lift . F.forM_ modified' $ addResponseHeader . (,) "Last-Modified" . utcTimeToRfc1123
+            lift . F.forM_ etag' $ addResponseHeader . (,) "ETag" . etagToByteString
             lift $ halt HTTP.status200
 
-o16 r = do
+o16 :: Monad m => FlowStateT m Bool
+o16 = do
     trace "o16"
     req <- lift request
-    if requestMethod req == HTTP.methodPut
-        then o14 r
-        else o18 r
+    return $ requestMethod req == HTTP.methodPut
 
-o14 r@Resource{..} = do
+o14 :: Monad m => Bool -> FlowStateT m ()
+o14 conflict = do
     trace "o14"
-    conflict <- lift isConflict
     if conflict
         then lift $ halt HTTP.status409
-        else negotiateContentTypesAccepted r >> p11 r
+        else return ()
 
 ------------------------------------------------------------------------------
 -- P column
 ------------------------------------------------------------------------------
 
-p11 r = do
+
+p11 :: Monad m => Maybe Location -> FlowStateT m ()
+p11 location = do
     trace "p11"
-    headers <- lift getResponseHeaders
-    case lookup HTTP.hLocation headers of
-        (Just _) ->
+    case location of
+        Just (Location loc) -> do
+            lift $ setResponseHeader (HTTP.hLocation, loc)
             lift $ halt HTTP.status201
         _ ->
-            o20 r
+            return ()
 
-p03 r@Resource{..} = do
+p03 :: Monad m => Bool -> FlowStateT m ()
+p03 conflict = do
     trace "p03"
-    conflict <- lift isConflict
     if conflict
         then lift $ halt HTTP.status409
-        else negotiateContentTypesAccepted r >> p11 r
+        else return ()

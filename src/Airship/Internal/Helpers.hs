@@ -5,14 +5,14 @@
 
 module Airship.Internal.Helpers
     ( parseFormData
-    , contentTypeMatches
     , redirectTemporarily
     , redirectPermanently
-    , resourceToWai
-    , resourceToWaiT
     , appendRequestPath
     , lookupParam
     , lookupParam'
+    , toWaiResponse
+    , getQuip
+    , traceHeader
     ) where
 
 #if __GLASGOW_HASKELL__ < 710
@@ -20,16 +20,13 @@ import           Control.Applicative
 #endif
 import           Data.ByteString           (ByteString)
 import qualified Data.ByteString.Lazy      as LazyBS
-import           Data.Maybe
 #if __GLASGOW_HASKELL__ < 710
 import           Data.Monoid
 #endif
 import qualified Data.HashMap.Strict       as HM
 import           Data.Text                 (Text, intercalate)
 import           Data.Text.Encoding
-import           Data.Time                 (getCurrentTime)
 import           Lens.Micro                ((^.))
-import           Network.HTTP.Media
 import qualified Network.HTTP.Types        as HTTP
 import qualified Network.Wai               as Wai
 
@@ -38,9 +35,7 @@ import           System.Random
 
 import           Airship.Config
 import           Airship.Headers
-import           Airship.Internal.Decision
-import           Airship.Internal.Route
-import           Airship.Resource
+import           Airship.Internal.Decision (appendRequestPath)
 import           Airship.Types
 
 -- | Parse form data uploaded with a @Content-Type@ of either
@@ -49,17 +44,6 @@ import           Airship.Types
 -- files and their information.
 parseFormData :: Request -> IO ([Param], [File LazyBS.ByteString])
 parseFormData r = parseRequestBody lbsBackEnd r
-
--- | Returns @True@ if the request's @Content-Type@ header is one of the
--- provided media types. If the @Content-Type@ header is not present,
--- this function will return True.
-contentTypeMatches :: Monad m => [MediaType] -> Webmachine m Bool
-contentTypeMatches validTypes = do
-    headers <- requestHeaders <$> request
-    let cType = lookup HTTP.hContentType headers
-    return $ case cType of
-        Nothing -> True
-        Just t  -> isJust $ matchAccept validTypes t
 
 -- | Issue an HTTP 302 (Found) response, with `location' as the destination.
 redirectTemporarily :: Monad m => ByteString -> Webmachine m a
@@ -92,23 +76,6 @@ toWaiResponse Response{..} cfg trace quip =
         quipHeader  = if cfg^.includeQuipHeader == IncludeHeader
                       then [("Airship-Quip", quip)]
                       else []
-
--- | Given a 'RoutingSpec', a 404 resource, and a user state @s@, construct a WAI 'Application'.
-resourceToWai :: AirshipConfig -> RoutingSpec IO () -> Resource IO -> Wai.Application
-resourceToWai cfg routes resource404 =
-  resourceToWaiT cfg (const id) routes resource404
-
--- | Given a 'RoutingSpec', a 404 resource, and a user state @s@, construct a WAI 'Application'.
-resourceToWaiT :: Monad m => AirshipConfig -> (Request -> m Wai.Response -> IO Wai.Response) -> RoutingSpec m () -> Resource m -> Wai.Application
-resourceToWaiT cfg run routes resource404 req respond = do
-    let routeMapping = runRouter routes
-        pInfo = Wai.pathInfo req
-        (resource, (params', matched)) = route routeMapping pInfo resource404
-    nowTime <- getCurrentTime
-    quip <- getQuip
-    (=<<) respond . run req $ do
-      (response, trace) <- eitherResponse nowTime params' matched req (flow resource)
-      return $ toWaiResponse response cfg (traceHeader trace) quip
 
 getQuip :: IO ByteString
 getQuip = do

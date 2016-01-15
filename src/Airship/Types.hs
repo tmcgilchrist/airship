@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -33,6 +34,7 @@ module Airship.Types
     , halt
     , finishWith
     , (#>)
+    , IOStateControl
     ) where
 
 import Blaze.ByteString.Builder (Builder)
@@ -139,6 +141,10 @@ instance MonadBaseControl b m => MonadBaseControl b (Webmachine m) where
 
 -- | A convenience synonym that writes the @Monad@ type constraint for you.
 type Handler m a = Monad m => Webmachine m a
+
+-- | A constraint alias for Airship use cases that require @MonadIO@,
+-- | @MonadBaseControl@, and @MonadState@ constraints.
+type IOStateControl s m = (MonadIO m, MonadBaseControl IO m, MonadState s m)
 
 -- Functions inside the Webmachine Monad -------------------------------------
 ------------------------------------------------------------------------------

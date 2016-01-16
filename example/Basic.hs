@@ -35,28 +35,23 @@ import           Network.Wai.Handler.Warp           (defaultSettings,
 -- Helpers
 -- ***************************************************************************
 
-getBody :: MonadIO m => Webmachine m LB.ByteString
+getBody :: MonadIO m => Webmachine p m LB.ByteString
 getBody = do
     req <- request
     liftIO (entireRequestBody req)
 
-readBody :: MonadIO m => Webmachine m Integer
+readBody :: MonadIO m => Webmachine p m Integer
 readBody = read . unpack <$> getBody
-
-routingParam :: Monad m => Text -> Webmachine m Text
-routingParam t = do
-    p <- params
-    return (p HM.! t)
 
 newtype State = State { _getState :: MVar (HashMap Text Integer) }
 
-resourceWithBody :: (MonadIO m, MonadState State m) => Text -> Resource m
+resourceWithBody :: (MonadIO m, MonadState State m) => Text -> Resource p m
 resourceWithBody t = defaultResource { contentTypesProvided = return [("text/plain", return (escapedResponse t))]
                                      , lastModified = Just <$> liftIO getCurrentTime
                                      , generateETag = return $ Just $ Strong "abc123"
                                      }
 
-accountResource :: (MonadIO m, MonadState State m) => Resource m
+accountResource :: (MonadIO m, MonadState State m) => Resource Text m
 accountResource = defaultResource
     { allowedMethods = return [ HTTP.methodGet
                               , HTTP.methodHead
@@ -69,8 +64,8 @@ accountResource = defaultResource
         let textAction = do
                 s <- lift get
                 m <- liftIO (readMVar (_getState s))
-                accountNameM <- HM.lookup "name" <$> params
-                let val = fromMaybe 0 (accountNameM >>= flip HM.lookup m)
+                accountName <- params
+                let val = fromMaybe 0 (HM.lookup accountName m)
                 return $ ResponseBuilder (fromHtmlEscapedText
                                                 (pack (show val) <> "\n"))
         return [("text/plain", textAction)]
@@ -80,7 +75,7 @@ accountResource = defaultResource
     , lastModified = Just <$> liftIO getCurrentTime
 
     , resourceExists = do
-        accountName <- routingParam "name"
+        accountName <- params
         s <- lift get
         m <- liftIO (readMVar (_getState s))
         return $ HM.member accountName m
@@ -99,18 +94,19 @@ accountResource = defaultResource
     )]
     }
 
-postPutStates :: (MonadIO m, MonadState State m) => Webmachine m (Integer, Text, State)
+postPutStates :: (MonadIO m, MonadState State m) => Webmachine Text m (Integer, Text, State)
 postPutStates = do
     val <- readBody
-    accountName <- routingParam "name"
+    accountName <- params
     s <- lift get
     return (val, accountName, s)
 
-myRoutes :: Resource (StateT State IO) -> RoutingSpec (StateT State IO) ()
+
+myRoutes :: Resource () (StateT State IO) -> RoutingSpec (StateT State IO) ()
 myRoutes static = do
     root                        #> resourceWithBody "Just the root resource"
-    "account" </> var "name"    #> accountResource
-    "static"  </> star          #> static
+    "account" /> var            #> accountResource
+    "static"  /> star           #> static
 
 main :: IO ()
 main = do

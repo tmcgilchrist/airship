@@ -27,12 +27,12 @@ module Airship.Types
     , getResponseHeaders
     , getResponseBody
     , params
+    , setParams
     , dispatchPath
     , putResponseBody
     , putResponseBS
     , halt
     , finishWith
-    , (#>)
     ) where
 
 import Blaze.ByteString.Builder (Builder)
@@ -50,11 +50,10 @@ import Control.Monad.Morph
 import Control.Monad.Reader.Class (MonadReader, ask)
 import Control.Monad.State.Class (MonadState, get, modify)
 import Control.Monad.Trans.Control (MonadBaseControl(..))
-import Control.Monad.Trans.Either (EitherT(..), runEitherT, left)
-import Control.Monad.Trans.RWS.Strict (RWST(..), runRWST)
-import Control.Monad.Writer.Class (MonadWriter, tell)
+import Control.Monad.Trans.Either (EitherT(..), mapEitherT, runEitherT, left)
+import Control.Monad.Trans.RWS.Strict (RWST(..), runRWST, withRWST)
+import Control.Monad.Writer.Class (MonadWriter)
 import Data.ByteString.Char8
-import Data.HashMap.Strict (HashMap)
 import Data.Monoid ((<>))
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
@@ -75,9 +74,12 @@ entireRequestBody req = liftIO (requestBody req) >>= strictRequestBody' LB.empty
             | BS.null prev = return acc
             | otherwise = liftIO (requestBody req) >>= strictRequestBody' (acc <> LB.fromStrict prev)
 
-data RequestReader = RequestReader { _now :: UTCTime
-                                   , _request :: Request
-                                   }
+data RequestReader p =
+  RequestReader {
+      _now :: UTCTime
+    , _request :: Request
+    , _params :: p
+    }
 
 data ETag = Strong ByteString
           | Weak ByteString
@@ -108,28 +110,27 @@ data Response = Response { _responseStatus     :: Status
 
 data ResponseState = ResponseState { stateHeaders   :: ResponseHeaders
                                    , stateBody      :: ResponseBody
-                                   , _params        :: HashMap Text Text
                                    , _dispatchPath  :: [Text]
                                    }
 
 type Trace = [Text]
 
-newtype Webmachine m a =
-    Webmachine { getWebmachine :: EitherT Response (RWST RequestReader Trace ResponseState m) a }
+newtype Webmachine p m a =
+    Webmachine { getWebmachine :: EitherT Response (RWST (RequestReader p) Trace ResponseState m) a }
         deriving (Functor, Applicative, Monad, MonadIO, MonadBase b,
-                  MonadReader RequestReader,
+                  MonadReader (RequestReader p),
                   MonadWriter Trace,
                   MonadState ResponseState)
 
-instance MonadTrans Webmachine where
+instance MonadTrans (Webmachine p) where
     lift = Webmachine . EitherT . (>>= return . Right) . lift
 
-newtype StMWebmachine m a = StMWebmachine {
-      unStMWebmachine :: StM (EitherT Response (RWST RequestReader Trace ResponseState m)) a
+newtype StMWebmachine p m a = StMWebmachine {
+      unStMWebmachine :: StM (EitherT Response (RWST (RequestReader p) Trace ResponseState m)) a
     }
 
-instance MonadBaseControl b m => MonadBaseControl b (Webmachine m) where
-  type StM (Webmachine m) a = StMWebmachine m a
+instance MonadBaseControl b m => MonadBaseControl b (Webmachine p m) where
+  type StM (Webmachine p m) a = StMWebmachine p m a
   liftBaseWith f = Webmachine
                      $ liftBaseWith
                      $ \g' -> f
@@ -138,88 +139,69 @@ instance MonadBaseControl b m => MonadBaseControl b (Webmachine m) where
   restoreM = Webmachine . restoreM . unStMWebmachine
 
 -- | A convenience synonym that writes the @Monad@ type constraint for you.
-type Handler m a = Monad m => Webmachine m a
+type Handler p m a = Monad m => Webmachine p m a
 
 -- Functions inside the Webmachine Monad -------------------------------------
 ------------------------------------------------------------------------------
 
 -- | Returns the 'Request' that this 'Handler' is currently processing.
-request :: Handler m Request
+request :: Handler p m Request
 request = _request <$> ask
 
 -- | Returns the bound routing parameters extracted from the routing system (see "Airship.Route").
-params :: Handler m (HashMap Text Text)
-params = _params <$> get
+params :: Handler p m p
+params = _params <$> ask
 
-dispatchPath :: Handler m [Text]
+setParams :: Monad m => p -> Webmachine p m a -> Webmachine p' m a
+setParams p = Webmachine . mapEitherT (withRWST (\r s -> (r { _params = p }, s))) . getWebmachine
+
+dispatchPath :: Handler p m [Text]
 dispatchPath = _dispatchPath <$> get
 
 -- | Returns the time at which this request began processing.
-requestTime :: Handler m UTCTime
+requestTime :: Handler p m UTCTime
 requestTime = _now <$> ask
 
 -- | Returns the 'ResponseHeaders' stored in the current 'Handler'.
-getResponseHeaders :: Handler m ResponseHeaders
+getResponseHeaders :: Handler p m ResponseHeaders
 getResponseHeaders = stateHeaders <$> get
 
 -- | Returns the current 'ResponseBody' that this 'Handler' is storing.
-getResponseBody :: Handler m ResponseBody
+getResponseBody :: Handler p m ResponseBody
 getResponseBody = stateBody <$> get
 
 -- | Given a new 'ResponseBody', replaces the stored body with the new one.
-putResponseBody :: ResponseBody -> Handler m ()
+putResponseBody :: ResponseBody -> Handler p m ()
 putResponseBody b = modify updateState
     where updateState rs = rs {stateBody = b}
 
 -- | Stores the provided 'ByteString' as the responseBody. This is a shortcut for
 -- creating a response body with a 'ResponseBuilder' and a bytestring 'Builder'.
-putResponseBS :: Monad m => ByteString -> Webmachine m ()
+putResponseBS :: Monad m => ByteString -> Webmachine p m ()
 putResponseBS bs = putResponseBody $ ResponseBuilder $ fromByteString bs
 
 -- | Immediately halts processing with the provided 'Status' code.
 -- The contents of the 'Webmachine''s response body will be streamed back to the client.
 -- This is a shortcut for constructing a 'Response' with 'getResponseHeaders' and 'getResponseBody'
 -- and passing that response to 'finishWith'.
-halt :: Monad m => Status -> Webmachine m a
+halt :: Monad m => Status -> Webmachine p m a
 halt status = finishWith =<< Response <$> return status <*> getResponseHeaders <*> getResponseBody
 
 -- | Immediately halts processing and writes the provided 'Response' back to the client.
-finishWith :: Monad m => Response -> Webmachine m a
+finishWith :: Monad m => Response -> Webmachine p m a
 finishWith = Webmachine . left
-
--- | The @#>@ operator provides syntactic sugar for the construction of association lists.
--- For example, the following assoc list:
---
--- @
---     [("run", "jewels"), ("blue", "suede"), ("zion", "wolf")]
--- @
---
--- can be represented as such:
---
--- @
---     execWriter $ do
---       "run" #> "jewels"
---       "blue" #> "suede"
---       "zion" #> "wolf"
--- @
---
--- It used in 'RoutingSpec' declarations to indicate that a particular 'Route' maps
--- to a given 'Resource', but can be used in many other places where association lists
--- are expected, such as 'contentTypesProvided'.
-(#>) :: MonadWriter [(k, v)] m => k -> v -> m ()
-k #> v = tell [(k, v)]
 
 both :: Either a a -> a
 both = either id id
 
-eitherResponse :: Monad m => UTCTime -> HashMap Text Text -> [Text] -> Request -> Webmachine m Response -> m (Response, Trace)
-eitherResponse reqDate reqParams dispatched req resource = do
-    (e, trace) <- runWebmachine reqDate reqParams dispatched req resource
+eitherResponse :: Monad m => UTCTime -> [Text] -> Request -> Webmachine () m Response -> m (Response, Trace)
+eitherResponse reqDate dispatched req resource = do
+    (e, trace) <- runWebmachine reqDate dispatched req resource
     return (both e, trace)
 
-runWebmachine :: Monad m => UTCTime -> HashMap Text Text -> [Text] -> Request -> Webmachine m a -> m (Either (Response) a, Trace)
-runWebmachine reqDate reqParams dispatched req w = do
-    let startingState = ResponseState [] Empty reqParams dispatched
-        requestReader = RequestReader reqDate req
+runWebmachine :: Monad m => UTCTime -> [Text] -> Request -> Webmachine () m a -> m (Either (Response) a, Trace)
+runWebmachine reqDate dispatched req w = do
+    let startingState = ResponseState [] Empty dispatched
+        requestReader = RequestReader reqDate req ()
     (e, _, t) <- runRWST (runEitherT (getWebmachine w)) requestReader startingState
     return (e, t)

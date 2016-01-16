@@ -6,8 +6,6 @@ module Airship.Helpers
     , resourceToWai
     , resourceToWaiT
     , appendRequestPath
-    , lookupParam
-    , lookupParam'
     ) where
 
 import           Airship.Internal.Helpers

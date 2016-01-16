@@ -11,8 +11,6 @@ module Airship.Internal.Helpers
     , resourceToWai
     , resourceToWaiT
     , appendRequestPath
-    , lookupParam
-    , lookupParam'
     ) where
 
 #if __GLASGOW_HASKELL__ < 710
@@ -24,7 +22,6 @@ import           Data.Maybe
 #if __GLASGOW_HASKELL__ < 710
 import           Data.Monoid
 #endif
-import qualified Data.HashMap.Strict       as HM
 import           Data.Text                 (Text, intercalate)
 import           Data.Text.Encoding
 import           Data.Time                 (getCurrentTime)
@@ -53,7 +50,7 @@ parseFormData r = parseRequestBody lbsBackEnd r
 -- | Returns @True@ if the request's @Content-Type@ header is one of the
 -- provided media types. If the @Content-Type@ header is not present,
 -- this function will return True.
-contentTypeMatches :: Monad m => [MediaType] -> Webmachine m Bool
+contentTypeMatches :: Monad m => [MediaType] -> Webmachine p m Bool
 contentTypeMatches validTypes = do
     headers <- requestHeaders <$> request
     let cType = lookup HTTP.hContentType headers
@@ -62,13 +59,13 @@ contentTypeMatches validTypes = do
         Just t  -> isJust $ matchAccept validTypes t
 
 -- | Issue an HTTP 302 (Found) response, with `location' as the destination.
-redirectTemporarily :: Monad m => ByteString -> Webmachine m a
+redirectTemporarily :: Monad m => ByteString -> Webmachine p m a
 redirectTemporarily location =
     addResponseHeader ("Location", location) >> halt HTTP.status302
 
 -- | Issue an HTTP 301 (Moved Permantently) response,
 -- with `location' as the destination.
-redirectPermanently :: Monad m => ByteString -> Webmachine m a
+redirectPermanently :: Monad m => ByteString -> Webmachine p m a
 redirectPermanently location =
     addResponseHeader ("Location", location) >> halt HTTP.status301
 
@@ -94,20 +91,20 @@ toWaiResponse Response{..} cfg trace quip =
                       else []
 
 -- | Given a 'RoutingSpec', a 404 resource, and a user state @s@, construct a WAI 'Application'.
-resourceToWai :: AirshipConfig -> RoutingSpec IO () -> Resource IO -> Wai.Application
+resourceToWai :: AirshipConfig -> RoutingSpec IO () -> Resource () IO -> Wai.Application
 resourceToWai cfg routes resource404 =
   resourceToWaiT cfg (const id) routes resource404
 
 -- | Given a 'RoutingSpec', a 404 resource, and a user state @s@, construct a WAI 'Application'.
-resourceToWaiT :: Monad m => AirshipConfig -> (Request -> m Wai.Response -> IO Wai.Response) -> RoutingSpec m () -> Resource m -> Wai.Application
+resourceToWaiT :: Monad m => AirshipConfig -> (Request -> m Wai.Response -> IO Wai.Response) -> RoutingSpec m () -> Resource () m -> Wai.Application
 resourceToWaiT cfg run routes resource404 req respond = do
     let routeMapping = runRouter routes
         pInfo = Wai.pathInfo req
-        (resource, (params', matched)) = route routeMapping pInfo resource404
+        (resource, matched) = route routeMapping pInfo resource404
     nowTime <- getCurrentTime
     quip <- getQuip
     (=<<) respond . run req $ do
-      (response, trace) <- eitherResponse nowTime params' matched req (flow resource)
+      (response, trace) <- eitherResponse nowTime matched req (flow resource)
       return $ toWaiResponse response cfg (traceHeader trace) quip
 
 getQuip :: IO ByteString
@@ -128,13 +125,3 @@ getQuip = do
 
 traceHeader :: [Text] -> ByteString
 traceHeader = encodeUtf8 . intercalate ","
-
--- | Lookup routing parameter and return 500 Internal Server Error if not found.
--- Not finding the paramter usually means the route doesn't match what
--- the resource is expecting.
-lookupParam :: Monad m => Text -> Webmachine m Text
-lookupParam p = lookupParam' p >>= maybe (halt HTTP.status500) pure
-
--- | Lookup routing parameter.
-lookupParam' :: Monad m => Text -> Webmachine m (Maybe Text)
-lookupParam' p = HM.lookup p <$> params

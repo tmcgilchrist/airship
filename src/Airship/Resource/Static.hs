@@ -113,10 +113,10 @@ directoryTree f = do
     let infos = fileInfos (zipWith (\(a,b) c -> (a,b,c)) regularFiles etags)
     return (FileTree (Trie.fromList infos) (T.pack f))
 
-staticResource :: Monad m => StaticOptions -> FilePath -> IO (Resource m)
+staticResource :: Monad m => StaticOptions -> FilePath -> IO (Resource () m)
 staticResource options p = staticResource' options <$> directoryTree p
 
-staticResource' :: Monad m => StaticOptions -> FileTree -> Resource m
+staticResource' :: Monad m => StaticOptions -> FileTree -> Resource () m
 staticResource' options FileTree{..} = defaultResource
     { allowedMethods = return [ HTTP.methodGet, HTTP.methodHead ]
     , resourceExists = getFileInfo >> return True
@@ -137,7 +137,7 @@ staticResource' options FileTree{..} = defaultResource
         return [ (mediaType, response)
                , ("application/octet-stream", response)]
     }
-    where getFileInfo :: Monad m => Webmachine m FileInfo
+    where getFileInfo :: Monad m => Webmachine () m FileInfo
           getFileInfo = do
             dispath <- dispatchPath
             let key = encodeUtf8 (T.intercalate "/" (root:dispath))
@@ -146,7 +146,7 @@ staticResource' options FileTree{..} = defaultResource
                 (Just r) -> return r
                 Nothing -> halt HTTP.status404
 
-addNoCacheHeaders :: Monad m => Webmachine m ()
+addNoCacheHeaders :: Monad m => Webmachine () m ()
 addNoCacheHeaders = do
     addResponseHeader (HTTP.hCacheControl, "no-cache, no-store, must-revalidate")
     addResponseHeader ("Pragma", "no-cache")

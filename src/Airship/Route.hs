@@ -5,8 +5,9 @@ module Airship.Route
     , var
     , star
     , (</>)
+    , (/>)
+    , (</)
     , (#>)
     ) where
 
-import           Airship.Types
-import           Airship.Internal.Route
+import           Airship.Internal.Route as X

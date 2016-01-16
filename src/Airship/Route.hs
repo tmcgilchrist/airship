@@ -8,6 +8,7 @@ module Airship.Route
     , (/>)
     , (</)
     , (#>)
+    , (@>)
     ) where
 
 import           Airship.Internal.Route as X

@@ -78,17 +78,17 @@ instance ToJSON DirigibleId where
   toJSON (DirigibleId i) =
     object [ "id" .= i ]
 
-jsonResponseV1 :: Db -> Webmachine p IO ResponseBody
+jsonResponseV1 :: Db -> Webmachine IO ResponseBody
 jsonResponseV1 db = do
   t <- lift $ list db
   return $ encodeResponse ((\(x,y) -> (x, DirigibleV1 y)) <$> t)
 
-jsonResponseV2 :: Db -> Webmachine p IO ResponseBody
+jsonResponseV2 :: Db -> Webmachine IO ResponseBody
 jsonResponseV2 db = do
   t <- lift $ list db
   return $ encodeResponse ((\(x,y) -> (x, DirigibleV2 y)) <$> t)
 
-dirigibleResource :: Db -> Resource () IO
+dirigibleResource :: Db -> Resource IO
 dirigibleResource db = defaultResource {
         allowedMethods = return [ HTTP.methodGet ]
       , contentTypesProvided = return [ ("application/v1+json", jsonResponseV1 db)
@@ -100,7 +100,7 @@ encodeResponse = ResponseBuilder . fromByteString . BSL.toStrict . encode
 
 routes :: Db -> RoutingSpec IO ()
 routes db = do
-      "dirigible" #> dirigibleResource db
+      "dirigible" @> dirigibleResource db
 
 main :: IO ()
 main = do

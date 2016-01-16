@@ -2,7 +2,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleInstances #-}
 
@@ -28,6 +27,7 @@ infixl 4 </>
 infixl 5 />
 infixl 5 </
 infixl 3 #>
+infixl 3 @>
 
 -- | 'Route's represent chunks of text used to match over URLs.
 -- You match hardcoded paths with string literals (and the @-XOverloadedStrings@ extension),
@@ -51,7 +51,7 @@ instance IsString (Route ()) where
     fromString s = Route [Bound (fromString s)] (modify (drop 1))
 
 data RouteResource m =
-  forall a. RouteResource (Route a) (Resource a m)
+  RouteResource (Route (Resource m))
 
 runRouter :: RoutingSpec m a -> [RouteResource m]
 runRouter routes = execWriter (getRouter routes)
@@ -100,27 +100,30 @@ star = Route [RestUnbound] (put [] >> return ())
 -- @
 --    myRoutes :: RoutingSpec IO ()
 --    myRoutes = do
---      root                                 #> myRootResource
+--      root                                 @> myRootResource
 --      Blog <$> "blog" '/>' var '</>' var   #> blogPostResource
---      "about"                              #> aboutResource
---      "anything" '/>' star                 #> wildcardResource
+--      "about"                              @> aboutResource
+--      "anything" '/>' star                 @> wildcardResource
 -- @
 --
 newtype RoutingSpec m a = RoutingSpec { getRouter :: Writer [RouteResource m] a }
     deriving (Functor, Applicative, Monad, MonadWriter [RouteResource m])
 
 -- Indicate that a particular 'Route' maps to a given 'Resource'
-(#>) :: Monad m => Route p -> Resource p m -> RoutingSpec m ()
-k #> v = tell [RouteResource k v]
+(#>) :: Monad m => Route p -> (p -> Resource m) -> RoutingSpec m ()
+k #> v = tell [RouteResource $ fmap v k]
 
-route :: Monad m => [RouteResource m] -> [Text] -> Resource () m -> (Resource () m, [Text])
+(@>) :: Monad m => Route () -> Resource m -> RoutingSpec m ()
+k @> v = k #> (const v)
+
+route :: Monad m => [RouteResource m] -> [Text] -> Resource m -> (Resource m, [Text])
 route routes pInfo resource404 = foldr' (matchRoute pInfo) (resource404, mempty) routes
 
-matchRoute :: Monad m => [Text] -> RouteResource m -> (Resource () m, [Text]) -> (Resource () m, [Text])
-matchRoute paths (RouteResource rSpec resource) (previousMatch, previousMap) =
+matchRoute :: Monad m => [Text] -> RouteResource m -> (Resource m, [Text]) -> (Resource m, [Text])
+matchRoute paths (RouteResource rSpec) (previousMatch, previousMap) =
     case matchRoute' paths rSpec of
       Nothing -> (previousMatch, previousMap)
-      Just (p, s) -> (setResourceParams p resource, s)
+      Just (resource, s) -> (resource, s)
 
 matchRoute' :: [Text] -> Route a -> Maybe (a, [Text])
 matchRoute' paths rSpec =

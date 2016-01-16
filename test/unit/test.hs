@@ -8,12 +8,16 @@ import Data.ByteString (ByteString)
 
 import Test.Tasty
 import Test.Tasty.HUnit
+import qualified Test.Airship.Internal.Route
 
 main :: IO ()
 main = defaultMain tests
 
 tests :: TestTree
-tests = testGroup "Tests" [examples]
+tests = testGroup "Tests" [
+    examples
+  , Test.Airship.Internal.Route.tests
+  ]
 
 examples :: TestTree
 examples = testGroup "Examples" [exampleTests]

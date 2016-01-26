@@ -114,7 +114,7 @@ serverError = finishWith (Response status500 [] Empty)
 -- You construct new resources by extending the default resource with your own handlers.
 defaultResource :: Monad m => Resource m
 defaultResource = Resource { allowMissingPost       = return False
-                           , allowedMethods         = return [methodGet, methodHead]
+                           , allowedMethods         = return [methodOptions, methodGet, methodHead]
                            , contentTypesAccepted   = return []
                            , contentTypesProvided   = return []
                            , deleteCompleted        = return False

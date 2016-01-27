@@ -1,49 +1,46 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP                #-}
 {-# LANGUAGE ImpredicativeTypes #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE RankNTypes         #-}
+{-# LANGUAGE RecordWildCards    #-}
 
 module Airship.Internal.Decision
     ( flow
     , appendRequestPath
     ) where
 
-import           Airship.Internal.Date (parseRfc1123Date, utcTimeToRfc1123)
-import           Airship.Headers (addResponseHeader)
-import           Airship.Types ( Response(..)
-                               , ResponseBody(..)
-                               , Webmachine
-                               , etagToByteString
-                               , getResponseBody
-                               , getResponseHeaders
-                               , halt
-                               , pathInfo
-                               , putResponseBody
-                               , request
-                               , requestHeaders
-                               , requestMethod
-                               , requestTime )
+import           Airship.Headers                  (addResponseHeader)
+import           Airship.Internal.Date            (parseRfc1123Date,
+                                                   utcTimeToRfc1123)
+import           Airship.Types                    (Response (..),
+                                                   ResponseBody (..),
+                                                   Webmachine, etagToByteString,
+                                                   getResponseBody,
+                                                   getResponseHeaders, halt,
+                                                   pathInfo, putResponseBody,
+                                                   request, requestHeaders,
+                                                   requestMethod, requestTime)
 
-import           Airship.Resource(Resource(..), PostResponse(..))
-import           Airship.Internal.Parsers (parseEtagList)
+import           Airship.Internal.Parsers         (parseEtagList)
+import           Airship.Resource                 (PostResponse (..),
+                                                   Resource (..))
 #if __GLASGOW_HASKELL__ < 710
-import           Control.Applicative ((<$>))
+import           Control.Applicative              ((<$>))
 #endif
-import           Control.Monad (when)
-import           Control.Monad.Trans (lift)
-import           Control.Monad.Trans.State.Strict (StateT(..), evalStateT,
-                                                   get, modify)
-import           Control.Monad.Writer.Class (tell)
+import           Control.Monad                    (when)
+import           Control.Monad.Trans              (lift)
+import           Control.Monad.Trans.State.Strict (StateT (..), evalStateT, get,
+                                                   modify)
+import           Control.Monad.Writer.Class       (tell)
 
-import           Blaze.ByteString.Builder (toByteString)
-import           Data.Maybe (isJust)
-import           Data.Text (Text)
-import           Data.Time.Clock (UTCTime)
+import           Blaze.ByteString.Builder         (toByteString)
 import           Data.ByteString                  (ByteString, intercalate)
+import           Data.Maybe                       (isJust)
+import           Data.Text                        (Text)
+import           Data.Time.Clock                  (UTCTime)
 
 import           Network.HTTP.Media
-import qualified Network.HTTP.Types as HTTP
+import qualified Network.HTTP.Types               as HTTP
 
 ------------------------------------------------------------------------------
 -- HTTP Headers
@@ -101,7 +98,9 @@ newtype IfNoneMatch = IfNoneMatch ByteString
 negotiateContentTypesAccepted :: Monad m => Resource m -> FlowStateT m ()
 negotiateContentTypesAccepted Resource{..} = do
     req <- lift request
-    accepted <- lift contentTypesAccepted
+    accepted <- lift $ if requestMethod req == HTTP.methodPatch
+                        then patchContentTypesAccepted
+                        else contentTypesAccepted
     let reqHeaders = requestHeaders req
         result = do
             cType <- lookup HTTP.hContentType reqHeaders
@@ -155,7 +154,7 @@ k07, k05 :: Monad m => Flow  m
 l17, l15, l14, l13, l07, l05 :: Monad m => Flow  m
 m20, m16, m07, m05 :: Monad m => Flow  m
 n16, n11, n05 :: Monad m => Flow  m
-o20, o18, o16, o14 :: Monad m => Flow  m
+o20, o18, o17, o16, o14 :: Monad m => Flow  m
 p11, p03 :: Monad m => Flow  m
 
 ------------------------------------------------------------------------------
@@ -696,7 +695,15 @@ o16 r = do
     req <- lift request
     if requestMethod req == HTTP.methodPut
         then o14 r
-        else o18 r
+        else o17 r
+
+o17 r@Resource{..} = do
+    trace "o17"
+    req <- lift request
+    if requestMethod req /= HTTP.methodPatch
+       then o18 r
+       else negotiateContentTypesAccepted r >> o20 r
+
 
 o14 r@Resource{..} = do
     trace "o14"

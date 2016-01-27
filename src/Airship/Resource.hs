@@ -7,7 +7,6 @@
 module Airship.Resource
     ( Resource(..)
     , PostResponse(..)
-    , serverError
     , defaultResource
     ) where
 
@@ -25,7 +24,6 @@ import Network.HTTP.Media (MediaType)
 -- Credit for this idea goes to Richard Wallace (purefn) on Webcrank.
 data PostResponse m
     = PostCreate [Text] -- ^ Treat this request as a PUT.
-    | PostCreateRedirect [Text] -- ^ Treat this request as a PUT, then redirect.
     | PostProcess (Webmachine m ()) -- ^ Process as a POST, but don't redirect.
     | PostProcessRedirect (Webmachine m ByteString) -- ^ Process and redirect.
 
@@ -66,9 +64,6 @@ data Resource m =
              , isAuthorized             :: Webmachine m Bool
                -- | When processing @PUT@ requests, a @True@ value returned here will halt processing with a @409 Conflict@.
              , isConflict               :: Webmachine m Bool
-               -- | Returns @415 Unsupported Media Type@ if false. We recommend you use the 'contentTypeMatches' helper function, which accepts a list of
-               -- 'MediaType' values, so as to simplify proper MIME type handling. Default: true.
-             , knownContentType         :: Webmachine m Bool
                -- | In the presence of an @If-Modified-Since@ header, returning a @Just@ value from 'lastModifed' allows
                -- the server to halt with @304 Not Modified@ if appropriate.
              , lastModified             :: Webmachine m (Maybe UTCTime)
@@ -106,10 +101,6 @@ data Resource m =
              , validContentHeaders      :: Webmachine m Bool
              }
 
--- | A helper function that terminates execution with @500 Internal Server Error@.
-serverError :: Monad m => Webmachine m a
-serverError = finishWith (Response status500 [] Empty)
-
 -- | The default Airship resource, with "sensible" values filled in for each entry.
 -- You construct new resources by extending the default resource with your own handlers.
 defaultResource :: Monad m => Resource m
@@ -125,7 +116,6 @@ defaultResource = Resource { allowMissingPost       = return False
                            , implemented            = return True
                            , isAuthorized           = return True
                            , isConflict             = return False
-                           , knownContentType       = return True
                            , lastModified           = return Nothing
                            , languageAvailable      = return True
                            , malformedRequest       = return False

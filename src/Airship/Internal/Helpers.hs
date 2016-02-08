@@ -59,7 +59,7 @@ contentTypeMatches validTypes = do
     let cType = lookup HTTP.hContentType headers
     return $ case cType of
         Nothing -> True
-        Just t  -> isJust $ matchAccept validTypes t
+        Just t  -> isJust $ matchContent validTypes t
 
 -- | Issue an HTTP 302 (Found) response, with `location' as the destination.
 redirectTemporarily :: Monad m => ByteString -> Webmachine m a

@@ -12,6 +12,9 @@ module Airship.Internal.Decision
 import           Airship.Headers                  (addResponseHeader)
 import           Airship.Internal.Date            (parseRfc1123Date,
                                                    utcTimeToRfc1123)
+import           Airship.Internal.Parsers         (parseEtagList)
+import           Airship.Resource                 (PostResponse (..),
+                                                   Resource (..))
 import           Airship.Types                    (Response (..),
                                                    ResponseBody (..),
                                                    Webmachine, etagToByteString,
@@ -20,10 +23,6 @@ import           Airship.Types                    (Response (..),
                                                    pathInfo, putResponseBody,
                                                    request, requestHeaders,
                                                    requestMethod, requestTime)
-
-import           Airship.Internal.Parsers         (parseEtagList)
-import           Airship.Resource                 (PostResponse (..),
-                                                   Resource (..))
 #if __GLASGOW_HASKELL__ < 710
 import           Control.Applicative              ((<$>))
 #endif
@@ -32,6 +31,7 @@ import           Control.Monad.Trans              (lift)
 import           Control.Monad.Trans.State.Strict (StateT (..), evalStateT, get,
                                                    modify)
 import           Control.Monad.Writer.Class       (tell)
+
 
 import           Blaze.ByteString.Builder         (toByteString)
 import           Data.ByteString                  (ByteString, intercalate)

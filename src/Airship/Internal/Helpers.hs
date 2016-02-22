@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP               #-}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -18,13 +19,16 @@ module Airship.Internal.Helpers
 #if __GLASGOW_HASKELL__ < 710
 import           Control.Applicative
 #endif
+import           Control.Monad             (join)
 import           Data.ByteString           (ByteString)
-import qualified Data.ByteString.Lazy      as LazyBS
+import qualified Data.ByteString.Lazy      as LB
 import           Data.Maybe
 #if __GLASGOW_HASKELL__ < 710
 import           Data.Monoid
 #endif
+import           Data.Foldable             (forM_)
 import qualified Data.HashMap.Strict       as HM
+import qualified Data.Map.Strict           as M
 import           Data.Text                 (Text, intercalate)
 import           Data.Text.Encoding
 import           Data.Time                 (getCurrentTime)
@@ -47,7 +51,7 @@ import           Airship.Types
 -- @www-form-urlencoded@ or @multipart/form-data@ to return a
 -- list of parameter names and values and a list of uploaded
 -- files and their information.
-parseFormData :: Request -> IO ([Param], [File LazyBS.ByteString])
+parseFormData :: Request -> IO ([Param], [File LB.ByteString])
 parseFormData r = parseRequestBody lbsBackEnd r
 
 -- | Returns @True@ if the request's @Content-Type@ header is one of the
@@ -94,21 +98,67 @@ toWaiResponse Response{..} cfg trace quip =
                       else []
 
 -- | Given a 'RoutingSpec', a 404 resource, and a user state @s@, construct a WAI 'Application'.
-resourceToWai :: AirshipConfig -> RoutingSpec IO () -> Resource IO -> Wai.Application
-resourceToWai cfg routes resource404 =
-  resourceToWaiT cfg (const id) routes resource404
+resourceToWai :: AirshipConfig
+              -> RoutingSpec IO ()
+              -> ErrorResponses IO
+              -> Wai.Application
+resourceToWai cfg routes errors =
+    resourceToWaiT cfg (const id) routes errors
 
--- | Given a 'RoutingSpec', a 404 resource, and a user state @s@, construct a WAI 'Application'.
-resourceToWaiT :: Monad m => AirshipConfig -> (Request -> m Wai.Response -> IO Wai.Response) -> RoutingSpec m () -> Resource m -> Wai.Application
-resourceToWaiT cfg run routes resource404 req respond = do
+-- | Given a 'RoutingSpec', an 'ErrorResponses', and a user state @s@, construct a WAI 'Application'.
+resourceToWaiT :: Monad m =>
+                  AirshipConfig
+               -> (Request -> m Wai.Response -> IO Wai.Response)
+               -> RoutingSpec m ()
+               -> ErrorResponses m
+               -> Wai.Application
+resourceToWaiT cfg run routes errors req respond = do
     let routeMapping = runRouter routes
         pInfo = Wai.pathInfo req
-        (resource, (params', matched)) = route routeMapping pInfo resource404
-    nowTime <- getCurrentTime
     quip <- getQuip
-    (=<<) respond . run req $ do
-      (response, trace) <- eitherResponse nowTime params' matched req (flow resource)
-      return $ toWaiResponse response cfg (traceHeader trace) quip
+    nowTime <- getCurrentTime
+    let (er, (ps, matched), r) =
+         case route routeMapping pInfo of
+             Nothing ->
+                 (errors, (mempty, []), return $ Response HTTP.status404 [(HTTP.hContentType, "text/plain")] Empty)
+             Just (resource, pm) ->
+                 (M.union (errorResponses resource) errors, pm, flow resource)
+    respond =<< run req (do
+        (response, trace) <- eitherResponse nowTime ps matched req (r >>= errorResponse er)
+        return $ toWaiResponse response cfg (traceHeader trace) quip)
+
+
+-- | If the Response body is Empty the response body is set based on the error responses
+--  provided by the application and resource. If the response body is not Empty or
+--  there are no error response configured for the status code in the Response then no
+--  action is taken. The contents of the 'Webmachine'' response body will be streamed
+--  back to the client.
+errorResponse :: Monad m =>
+                 ErrorResponses m
+              -> Response
+              -> Webmachine m Response
+errorResponse errResps r@Response{..}
+    | (HTTP.statusIsClientError _responseStatus ||
+       HTTP.statusIsServerError _responseStatus) &&
+       isResponseBodyEmpty _responseBody = do
+           req <- request
+           let reqHeaders = requestHeaders req
+               acceptStr = lookup HTTP.hAccept reqHeaders
+               errBodies = map dupContentType <$> M.lookup _responseStatus errResps
+               mResp = join $ mapAcceptMedia <$> errBodies <*> acceptStr
+           forM_ mResp $ \(ct, body) -> do
+               putResponseBody =<< body
+               addResponseHeader ("Content-Type", renderHeader ct)
+           Response
+               <$> return _responseStatus
+               <*> getResponseHeaders
+               <*> getResponseBody
+    | otherwise = return r
+    where
+        isResponseBodyEmpty Empty = True
+        isResponseBodyEmpty _ = False
+        dupContentType (a, b) = (a, (a, b))
+
 
 getQuip :: IO ByteString
 getQuip = do

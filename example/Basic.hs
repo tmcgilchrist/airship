@@ -21,6 +21,7 @@ import qualified Data.ByteString.Lazy               as LB
 import           Data.ByteString.Lazy.Char8         (unpack)
 import           Data.HashMap.Strict                (HashMap)
 import qualified Data.HashMap.Strict                as HM
+import qualified Data.Map.Strict                    as M
 import           Data.Maybe                         (fromMaybe)
 import           Data.Monoid                        ((<>))
 import           Data.Text                          (Text, pack)
@@ -119,16 +120,10 @@ main = do
         host = "127.0.0.1"
         settings = setPort port (setHost host defaultSettings)
         routes = myRoutes static
-        response404 = escapedResponse "<html><head></head><body><h1>404 Not Found</h1></body></html>"
-        resource404 = defaultResource { resourceExists = return False
-                                      , contentTypesProvided = return
-                                            [ ( "text/html"
-                                              , return response404
-                                              )
-                                            ]
-                                      }
-
     mvar <- newMVar HM.empty
     let s = State mvar
     putStrLn "Listening on port 3000"
-    runSettings settings (resourceToWaiT defaultAirshipConfig (const $ flip evalStateT s) routes resource404)
+    runSettings settings (resourceToWaiT defaultAirshipConfig (const $ flip evalStateT s) routes errors)
+    where
+        errors = let response404 = escapedResponse "<html><head></head><body><h1>404 Not Found</h1></body></html>"
+                 in M.singleton HTTP.status404 [("text/html", return response404)]

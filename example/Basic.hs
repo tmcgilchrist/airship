@@ -86,11 +86,11 @@ accountResource = defaultResource
         return $ HM.member accountName m
 
     -- POST'ing to this resource adds the integer to the current value
-    , processPost = return (PostProcess $ do
+    , processPost = return (PostProcess [("text/plain", do
         (val, accountName, s) <- postPutStates
         liftIO (modifyMVar_ (_getState s) (return . HM.insertWith (+) accountName val))
         return ()
-        )
+        )])
 
     , contentTypesAccepted = return [("text/plain", do
         (val, accountName, s) <- postPutStates

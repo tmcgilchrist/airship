@@ -635,10 +635,10 @@ processPostAction (PostCreate ts) r = do
 processPostAction (PostCreateRedirect ts) r = do
     create ts r
     lift $ halt HTTP.status303
-processPostAction (PostProcess p) r =
-    lift p >> p11 r
-processPostAction (PostProcessRedirect ts) _r = do
-    locBs <- lift ts
+processPostAction (PostProcess accepted) r = do
+    negotiateContentTypesAccepted accepted >> p11 r
+processPostAction (PostProcessRedirect accepted) _r = do
+    locBs <- negotiateContentTypesAccepted accepted
     lift $ addResponseHeader ("Location", locBs)
     lift $ halt HTTP.status303
 

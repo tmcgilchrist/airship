@@ -95,12 +95,9 @@ newtype IfNoneMatch = IfNoneMatch ByteString
 -- Decision Helpers
 ------------------------------------------------------------------------------
 
-negotiateContentTypesAccepted :: Monad m => Resource m -> FlowStateT m ()
-negotiateContentTypesAccepted Resource{..} = do
+negotiateContentTypesAccepted :: Monad m => [(MediaType, Webmachine m a)] -> FlowStateT m a
+negotiateContentTypesAccepted accepted = do
     req <- lift request
-    accepted <- lift $ if requestMethod req == HTTP.methodPatch
-                        then patchContentTypesAccepted
-                        else contentTypesAccepted
     let reqHeaders = requestHeaders req
         result = do
             cType <- lookup HTTP.hContentType reqHeaders
@@ -626,10 +623,10 @@ n16 r = do
 n11 r@Resource{..} = trace "n11" >> lift processPost >>= flip processPostAction r
 
 create :: Monad m => [Text] -> Resource m -> FlowStateT m ()
-create ts r = do
+create ts Resource{..} = do
     loc <- lift (appendRequestPath ts)
     lift (addResponseHeader ("Location", loc))
-    negotiateContentTypesAccepted r
+    lift contentTypesAccepted >>= negotiateContentTypesAccepted
 
 processPostAction :: Monad m => PostResponse m -> Flow  m
 processPostAction (PostCreate ts) r = do
@@ -702,7 +699,7 @@ o17 r@Resource{..} = do
     req <- lift request
     if requestMethod req /= HTTP.methodPatch
        then o18 r
-       else negotiateContentTypesAccepted r >> o20 r
+       else lift patchContentTypesAccepted >>= negotiateContentTypesAccepted >> o20 r
 
 
 o14 r@Resource{..} = do
@@ -710,7 +707,7 @@ o14 r@Resource{..} = do
     conflict <- lift isConflict
     if conflict
         then lift $ halt HTTP.status409
-        else negotiateContentTypesAccepted r >> p11 r
+        else lift contentTypesAccepted >>= negotiateContentTypesAccepted >> p11 r
 
 ------------------------------------------------------------------------------
 -- P column
@@ -730,4 +727,4 @@ p03 r@Resource{..} = do
     conflict <- lift isConflict
     if conflict
         then lift $ halt HTTP.status409
-        else negotiateContentTypesAccepted r >> p11 r
+        else lift contentTypesAccepted >>= negotiateContentTypesAccepted >> p11 r

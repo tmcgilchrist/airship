@@ -1,0 +1,245 @@
+Title = "HTTP Decision Diagram";
+Version = "v3";
+Description = "An activity diagram to describe the resolution of HTTP response status codes, given various methods and headers, implemented via semantical callbacks.";
+Initial = start;
+Final = finish;
+
+
+start:anything -> serviceAvailable;
+
+
+serviceAvailable:false -A13-> 503_SERVICE_UNAVAILABLE;
+serviceAvailable:true -> knownMethod;
+knownMethod:false -A12-> 501_NOT_IMPLEMENTED;
+knownMethod:true -> uriTooLong;
+uriTooLong:false -A11-> 414_URI_TOO_LONG;
+uriTooLong:true -> allowedMethods;
+allowedMethods:false -A10-> 405_METHOD_NOT_ALLOWED;
+allowedMethods:true -> malformedRequest;
+malformedRequest:false -A09-> 400_BAD_REQUEST;
+malformedRequest:true -> isAuthorized;
+isAuthorized:false -A08-> 401_UNAUTHORIZED;
+isAuthorized:true -> forbidden;
+forbidden:false -A07-> 403_FORBIDDEN;
+forbidden:true -> validContentHeaders;
+validContentHeaders:false -A06-> 501_NOT_IMPLEMENTED;
+validContentHeaders:true -> knownContentType;
+knownContentType:false -A05-> 415_UNSUPPORTED_MEDIA_TYPE;
+knownContentType:true -> entityTooLarge;
+entityTooLarge:false -A04-> 413_PAYLOAD_TOO_LARGE;
+entityTooLarge:true -> options;
+options:false -> acceptExists;
+options:true -A03-> 200_OK;
+acceptExists:false -D03-> acceptLanguageExists;
+acceptExists:true -> acceptMatches;
+acceptMatches:false -C07-> 406_NOT_ACCEPTABLE;
+acceptMatches:true -> acceptLanguageExists;
+acceptLanguageExists:false -E04-> acceptCharsetExists;
+acceptLanguageExists:true -> acceptLanguageMatches;
+acceptLanguageMatches:false -D07,C07-> 406_NOT_ACCEPTABLE;
+acceptLanguageMatches:true -> acceptCharsetExists;
+acceptCharsetExists:false -F05-> acceptEncodingExists;
+acceptCharsetExists:true -> acceptCharsetMatches;
+acceptCharsetMatches:false -E07,C07-> 406_NOT_ACCEPTABLE;
+acceptCharsetMatches:true -> acceptEncodingExists;
+acceptEncodingExists:false -G06-> resourceExists;
+acceptEncodingExists:true -> acceptEncodingMatches;
+acceptEncodingMatches:false -C07-> 406_NOT_ACCEPTABLE;
+acceptEncodingMatches:true -> resourceExists;
+
+resourceExists:false -> ifMatchExistsCreate;
+resourceExists:true -> ifMatchExists;
+ifMatchExistsCreate:true -H06-> 412_PRECONDITION_FAILED;
+ifMatchExistsCreate:false -> isPutCreate;
+isPutCreate:false -> previouslyExisted;
+isPutCreate:true -> movedPermanentlyPut;
+movedPermanentlyPut:false -I03-> isConflictCreate;
+movedPermanentlyPut:true -K04-> 301_MOVED_PERMANENTLY;
+isConflictCreate:false -> newResource;
+isConflictCreate:true -P02-> 409_CONFLICT;
+previouslyExisted:true -> movedPermanently;
+movedPermanently:false -> movedTemporarily;
+movedPermanently:true -K04-> 301_MOVED_PERMANENTLY;
+movedTemporarily:true -L04-> 307_MOVED_TEMPORARILY;
+movedTemporarily:false -> isPostExisting;
+isPostExisting:false -M04,N04-> 410_GONE;
+isPostExisting:true -> allowMissingPostExisting;
+allowMissingPostExisting:false -N04-> 410_GONE;
+allowMissingPostExisting:true -> postIsRedirect;
+isPostCreate:false -L08,M08-> 404_NOT_FOUND;
+isPostCreate:true -> allowMissingPost;
+allowMissingPost:false -M08-> 404_NOT_FOUND;
+allowMissingPost:true -N07-> postIsRedirect;
+previouslyExisted:false -> isPostCreate;
+ifMatchExists:false -H08-> ifUnmodifiedSinceExists;
+ifMatchExists:true -> ifMatchMatches;
+ifMatchMatches:false -> ifMatchEtag;
+ifMatchMatches:true -> ifUnmodifiedSinceExists;
+ifMatchEtag:false -G18,H18-> 412_PRECONDITION_FAILED;
+ifMatchEtag:true -> ifUnmodifiedSinceExists;
+
+ifUnmodifiedSinceExists:false -I10-> ifNoneMatchExists;
+ifUnmodifiedSinceExists:true -> ifUnmodifiedSinceValid;
+ifUnmodifiedSinceValid:false -I11-> ifNoneMatchExists;
+ifUnmodifiedSinceValid:true -> ifUnmodifiedSinceMatches;
+ifUnmodifiedSinceMatches:false -> ifNoneMatchExists;
+ifUnmodifiedSinceMatches:true -H18-> 412_PRECONDITION_FAILED;
+
+ifNoneMatchExists:false -L12-> ifModifiedSinceExists;
+ifNoneMatchExists:true -> ifNoneMatchMatches;
+ifNoneMatchMatches:false -> ifNoneMatchEtag;
+ifNoneMatchMatches:true -I17,J17-> headOrGet;
+ifNoneMatchEtag:false -> ifModifiedSinceExists;
+ifNoneMatchEtag:true -K17,J17-> headOrGet;
+headOrGet:false -H18-> 412_PRECONDITION_FAILED;
+headOrGet:true -L18-> 304_NOT_MODIFIED;
+
+ifModifiedSinceExists:false -M13-> isDelete;
+ifModifiedSinceExists:true -> ifModifiedSinceValid;
+ifModifiedSinceValid:false -M14-> isDelete;
+ifModifiedSinceValid:true -> ifModifiedSinceLater;
+ifModifiedSinceLater:false -> ifModifiedSinceMatches;
+ifModifiedSinceLater:true -> isDelete;
+ifModifiedSinceMatches:false -L18-> 304_NOT_MODIFIED;
+ifModifiedSinceMatches:true -> isDelete;
+
+isDelete:false -> isPost;
+isPost:false -> isPut;
+isPost:true -> postIsRedirect;
+isPut:false -> multipleChoices;
+isPut:true -> isConflict;
+isDelete:true -> deleteResource;
+deleteResource:false -M21-> 202_ACCEPTED;
+deleteResource:true -> hasBody;
+
+hasBody:false -O21-> 204_NO_CONTENT;
+hasBody:true -> multipleChoices;
+isConflict:false -O11-> newResource;
+isConflict:true -P14-> 409_CONFLICT;
+multipleChoices:false -N18-> 200_OK;
+multipleChoices:true -P18,P19-> 300_MULTIPLE_CHOICES;
+newResource:false -P13,Q13,Q20-> hasBody;
+newResource:true -Q11,Q12-> 201_CREATED;
+
+postIsRedirect:false -> newResource;
+postIsRedirect:true -M11-> 303_SEE_OTHER;
+
+
+
+anything,
+true,
+false
+: message;
+
+
+200_OK,
+201_CREATED,
+202_ACCEPTED,
+204_NO_CONTENT,
+300_MULTIPLE_CHOICES,
+301_MOVED_PERMANENTLY,
+303_SEE_OTHER,
+304_NOT_MODIFIED,
+307_MOVED_TEMPORARILY,
+400_BAD_REQUEST,
+401_UNAUTHORIZED,
+403_FORBIDDEN,
+404_NOT_FOUND,
+405_METHOD_NOT_ALLOWED,
+406_NOT_ACCEPTABLE,
+409_CONFLICT,
+410_GONE,
+412_PRECONDITION_FAILED,
+413_PAYLOAD_TOO_LARGE,
+414_URI_TOO_LONG,
+415_UNSUPPORTED_MEDIA_TYPE,
+501_NOT_IMPLEMENTED,
+503_SERVICE_UNAVAILABLE,
+
+start:B14,
+finish:R22
+
+: state;
+
+
+newResource:P11,
+isConflictCreate:P03,
+hasBody:O20,
+multipleChoices:O18,
+isPut:O16,
+isConflict:O14,
+isPost:N16,
+postIsRedirect:N11,
+allowMissingPostExisting:N05,
+deleteResource:M20,
+isDelete:M16,
+allowMissingPost:M07,
+isPostExisting:M05,
+ifModifiedSinceMatches:L17,
+ifModifiedSinceLater:L15,
+ifModifiedSinceValid:L14,
+ifModifiedSinceExists:L13,
+isPostCreate:L07,
+movedTemporarily:L05,
+ifNoneMatchEtag:K13,
+previouslyExisted:K07,
+movedPermanently:K05,
+headOrGet:J18,
+ifNoneMatchMatches:I13,
+ifNoneMatchExists:I12,
+isPutCreate:I07,
+movedPermanentlyPut:I04,
+ifUnmodifiedSinceMatches:H12,
+ifUnmodifiedSinceValid:H11,
+ifUnmodifiedSinceExists:H10,
+ifMatchExistsCreate:H07,
+ifMatchEtag:G11,
+ifMatchMatches:G09,
+ifMatchExists:G08,
+resourceExists:G07,
+acceptEncodingExists:F06,
+acceptEncodingMatches:F07,
+acceptCharsetExists:E05,
+acceptCharsetMatches:E06,
+acceptLanguageExists:D04,
+acceptLanguageMatches:D05,
+acceptMatches:C04,
+acceptExists:C03,
+options:B03,
+entityTooLarge:B04,
+knownContentType:B05,
+validContentHeaders:B06,
+forbidden:B07,
+isAuthorized:B08,
+malformedRequest:B09,
+allowedMethods:B10,
+uriTooLong:B11,
+knownMethod:B12,
+serviceAvailable:B13
+: decision;
+
+
+200_OK,
+201_CREATED,
+202_ACCEPTED,
+204_NO_CONTENT,
+300_MULTIPLE_CHOICES,
+301_MOVED_PERMANENTLY,
+303_SEE_OTHER,
+304_NOT_MODIFIED,
+307_MOVED_TEMPORARILY,
+400_BAD_REQUEST,
+401_UNAUTHORIZED,
+403_FORBIDDEN,
+404_NOT_FOUND,
+405_METHOD_NOT_ALLOWED,
+406_NOT_ACCEPTABLE,
+409_CONFLICT,
+410_GONE,
+412_PRECONDITION_FAILED,
+413_PAYLOAD_TOO_LARGE,
+414_URI_TOO_LONG,
+415_UNSUPPORTED_MEDIA_TYPE,
+501_NOT_IMPLEMENTED,
+503_SERVICE_UNAVAILABLE
+: status_code;

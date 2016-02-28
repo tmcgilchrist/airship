@@ -1,0 +1,1941 @@
+{
+  "__type": "state_machine",
+  "statements": [
+    {
+      "__type": "assignment",
+      "name": "Title",
+      "value": "HTTP Decision Diagram"
+    },
+    {
+      "__type": "assignment",
+      "name": "Version",
+      "value": "v3"
+    },
+    {
+      "__type": "assignment",
+      "name": "Description",
+      "value": "An activity diagram to describe the resolution of HTTP response status codes, given various methods and headers, implemented via semantical callbacks."
+    },
+    {
+      "__type": "assignment",
+      "name": "Initial",
+      "value": "start"
+    },
+    {
+      "__type": "assignment",
+      "name": "Final",
+      "value": "finish"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "start"
+      ],
+      "messages": [
+        "anything"
+      ],
+      "next_state": "serviceAvailable"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "serviceAvailable"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "A",
+          "y": "13"
+        }
+      ],
+      "next_state": "503_SERVICE_UNAVAILABLE"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "serviceAvailable"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "knownMethod"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "knownMethod"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "A",
+          "y": "12"
+        }
+      ],
+      "next_state": "501_NOT_IMPLEMENTED"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "knownMethod"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "uriTooLong"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "uriTooLong"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "A",
+          "y": "11"
+        }
+      ],
+      "next_state": "414_URI_TOO_LONG"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "uriTooLong"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "allowedMethods"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "allowedMethods"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "A",
+          "y": "10"
+        }
+      ],
+      "next_state": "405_METHOD_NOT_ALLOWED"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "allowedMethods"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "malformedRequest"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "malformedRequest"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "A",
+          "y": "09"
+        }
+      ],
+      "next_state": "400_BAD_REQUEST"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "malformedRequest"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "isAuthorized"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "isAuthorized"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "A",
+          "y": "08"
+        }
+      ],
+      "next_state": "401_UNAUTHORIZED"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "isAuthorized"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "forbidden"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "forbidden"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "A",
+          "y": "07"
+        }
+      ],
+      "next_state": "403_FORBIDDEN"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "forbidden"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "validContentHeaders"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "validContentHeaders"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "A",
+          "y": "06"
+        }
+      ],
+      "next_state": "501_NOT_IMPLEMENTED"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "validContentHeaders"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "knownContentType"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "knownContentType"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "A",
+          "y": "05"
+        }
+      ],
+      "next_state": "415_UNSUPPORTED_MEDIA_TYPE"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "knownContentType"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "entityTooLarge"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "entityTooLarge"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "A",
+          "y": "04"
+        }
+      ],
+      "next_state": "413_PAYLOAD_TOO_LARGE"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "entityTooLarge"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "options"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "options"
+      ],
+      "messages": [
+        "false"
+      ],
+      "next_state": "acceptExists"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "options"
+      ],
+      "messages": [
+        "true"
+      ],
+      "coords": [
+        {
+          "x": "A",
+          "y": "03"
+        }
+      ],
+      "next_state": "200_OK"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "acceptExists"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "D",
+          "y": "03"
+        }
+      ],
+      "next_state": "acceptLanguageExists"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "acceptExists"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "acceptMatches"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "acceptMatches"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "C",
+          "y": "07"
+        }
+      ],
+      "next_state": "406_NOT_ACCEPTABLE"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "acceptMatches"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "acceptLanguageExists"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "acceptLanguageExists"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "E",
+          "y": "04"
+        }
+      ],
+      "next_state": "acceptCharsetExists"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "acceptLanguageExists"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "acceptLanguageMatches"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "acceptLanguageMatches"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "D",
+          "y": "07"
+        },
+        {
+          "x": "C",
+          "y": "07"
+        }
+      ],
+      "next_state": "406_NOT_ACCEPTABLE"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "acceptLanguageMatches"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "acceptCharsetExists"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "acceptCharsetExists"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "F",
+          "y": "05"
+        }
+      ],
+      "next_state": "acceptEncodingExists"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "acceptCharsetExists"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "acceptCharsetMatches"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "acceptCharsetMatches"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "E",
+          "y": "07"
+        },
+        {
+          "x": "C",
+          "y": "07"
+        }
+      ],
+      "next_state": "406_NOT_ACCEPTABLE"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "acceptCharsetMatches"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "acceptEncodingExists"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "acceptEncodingExists"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "G",
+          "y": "06"
+        }
+      ],
+      "next_state": "resourceExists"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "acceptEncodingExists"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "acceptEncodingMatches"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "acceptEncodingMatches"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "C",
+          "y": "07"
+        }
+      ],
+      "next_state": "406_NOT_ACCEPTABLE"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "acceptEncodingMatches"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "resourceExists"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "resourceExists"
+      ],
+      "messages": [
+        "false"
+      ],
+      "next_state": "ifMatchExistsCreate"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "resourceExists"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "ifMatchExists"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifMatchExistsCreate"
+      ],
+      "messages": [
+        "true"
+      ],
+      "coords": [
+        {
+          "x": "H",
+          "y": "06"
+        }
+      ],
+      "next_state": "412_PRECONDITION_FAILED"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifMatchExistsCreate"
+      ],
+      "messages": [
+        "false"
+      ],
+      "next_state": "isPutCreate"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "isPutCreate"
+      ],
+      "messages": [
+        "false"
+      ],
+      "next_state": "previouslyExisted"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "isPutCreate"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "movedPermanentlyPut"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "movedPermanentlyPut"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "I",
+          "y": "03"
+        }
+      ],
+      "next_state": "isConflictCreate"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "movedPermanentlyPut"
+      ],
+      "messages": [
+        "true"
+      ],
+      "coords": [
+        {
+          "x": "K",
+          "y": "04"
+        }
+      ],
+      "next_state": "301_MOVED_PERMANENTLY"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "isConflictCreate"
+      ],
+      "messages": [
+        "false"
+      ],
+      "next_state": "newResource"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "isConflictCreate"
+      ],
+      "messages": [
+        "true"
+      ],
+      "coords": [
+        {
+          "x": "P",
+          "y": "02"
+        }
+      ],
+      "next_state": "409_CONFLICT"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "previouslyExisted"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "movedPermanently"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "movedPermanently"
+      ],
+      "messages": [
+        "false"
+      ],
+      "next_state": "movedTemporarily"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "movedPermanently"
+      ],
+      "messages": [
+        "true"
+      ],
+      "coords": [
+        {
+          "x": "K",
+          "y": "04"
+        }
+      ],
+      "next_state": "301_MOVED_PERMANENTLY"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "movedTemporarily"
+      ],
+      "messages": [
+        "true"
+      ],
+      "coords": [
+        {
+          "x": "L",
+          "y": "04"
+        }
+      ],
+      "next_state": "307_MOVED_TEMPORARILY"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "movedTemporarily"
+      ],
+      "messages": [
+        "false"
+      ],
+      "next_state": "isPostExisting"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "isPostExisting"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "M",
+          "y": "04"
+        },
+        {
+          "x": "N",
+          "y": "04"
+        }
+      ],
+      "next_state": "410_GONE"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "isPostExisting"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "allowMissingPostExisting"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "allowMissingPostExisting"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "N",
+          "y": "04"
+        }
+      ],
+      "next_state": "410_GONE"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "allowMissingPostExisting"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "postIsRedirect"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "isPostCreate"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "L",
+          "y": "08"
+        },
+        {
+          "x": "M",
+          "y": "08"
+        }
+      ],
+      "next_state": "404_NOT_FOUND"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "isPostCreate"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "allowMissingPost"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "allowMissingPost"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "M",
+          "y": "08"
+        }
+      ],
+      "next_state": "404_NOT_FOUND"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "allowMissingPost"
+      ],
+      "messages": [
+        "true"
+      ],
+      "coords": [
+        {
+          "x": "N",
+          "y": "07"
+        }
+      ],
+      "next_state": "postIsRedirect"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "previouslyExisted"
+      ],
+      "messages": [
+        "false"
+      ],
+      "next_state": "isPostCreate"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifMatchExists"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "H",
+          "y": "08"
+        }
+      ],
+      "next_state": "ifUnmodifiedSinceExists"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifMatchExists"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "ifMatchMatches"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifMatchMatches"
+      ],
+      "messages": [
+        "false"
+      ],
+      "next_state": "ifMatchEtag"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifMatchMatches"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "ifUnmodifiedSinceExists"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifMatchEtag"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "G",
+          "y": "18"
+        },
+        {
+          "x": "H",
+          "y": "18"
+        }
+      ],
+      "next_state": "412_PRECONDITION_FAILED"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifMatchEtag"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "ifUnmodifiedSinceExists"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifUnmodifiedSinceExists"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "I",
+          "y": "10"
+        }
+      ],
+      "next_state": "ifNoneMatchExists"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifUnmodifiedSinceExists"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "ifUnmodifiedSinceValid"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifUnmodifiedSinceValid"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "I",
+          "y": "11"
+        }
+      ],
+      "next_state": "ifNoneMatchExists"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifUnmodifiedSinceValid"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "ifUnmodifiedSinceMatches"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifUnmodifiedSinceMatches"
+      ],
+      "messages": [
+        "false"
+      ],
+      "next_state": "ifNoneMatchExists"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifUnmodifiedSinceMatches"
+      ],
+      "messages": [
+        "true"
+      ],
+      "coords": [
+        {
+          "x": "H",
+          "y": "18"
+        }
+      ],
+      "next_state": "412_PRECONDITION_FAILED"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifNoneMatchExists"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "L",
+          "y": "12"
+        }
+      ],
+      "next_state": "ifModifiedSinceExists"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifNoneMatchExists"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "ifNoneMatchMatches"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifNoneMatchMatches"
+      ],
+      "messages": [
+        "false"
+      ],
+      "next_state": "ifNoneMatchEtag"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifNoneMatchMatches"
+      ],
+      "messages": [
+        "true"
+      ],
+      "coords": [
+        {
+          "x": "I",
+          "y": "17"
+        },
+        {
+          "x": "J",
+          "y": "17"
+        }
+      ],
+      "next_state": "headOrGet"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifNoneMatchEtag"
+      ],
+      "messages": [
+        "false"
+      ],
+      "next_state": "ifModifiedSinceExists"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifNoneMatchEtag"
+      ],
+      "messages": [
+        "true"
+      ],
+      "coords": [
+        {
+          "x": "K",
+          "y": "17"
+        },
+        {
+          "x": "J",
+          "y": "17"
+        }
+      ],
+      "next_state": "headOrGet"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "headOrGet"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "H",
+          "y": "18"
+        }
+      ],
+      "next_state": "412_PRECONDITION_FAILED"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "headOrGet"
+      ],
+      "messages": [
+        "true"
+      ],
+      "coords": [
+        {
+          "x": "L",
+          "y": "18"
+        }
+      ],
+      "next_state": "304_NOT_MODIFIED"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifModifiedSinceExists"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "M",
+          "y": "13"
+        }
+      ],
+      "next_state": "isDelete"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifModifiedSinceExists"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "ifModifiedSinceValid"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifModifiedSinceValid"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "M",
+          "y": "14"
+        }
+      ],
+      "next_state": "isDelete"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifModifiedSinceValid"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "ifModifiedSinceLater"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifModifiedSinceLater"
+      ],
+      "messages": [
+        "false"
+      ],
+      "next_state": "ifModifiedSinceMatches"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifModifiedSinceLater"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "isDelete"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifModifiedSinceMatches"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "L",
+          "y": "18"
+        }
+      ],
+      "next_state": "304_NOT_MODIFIED"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "ifModifiedSinceMatches"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "isDelete"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "isDelete"
+      ],
+      "messages": [
+        "false"
+      ],
+      "next_state": "isPost"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "isPost"
+      ],
+      "messages": [
+        "false"
+      ],
+      "next_state": "isPut"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "isPost"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "postIsRedirect"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "isPut"
+      ],
+      "messages": [
+        "false"
+      ],
+      "next_state": "multipleChoices"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "isPut"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "isConflict"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "isDelete"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "deleteResource"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "deleteResource"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "M",
+          "y": "21"
+        }
+      ],
+      "next_state": "202_ACCEPTED"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "deleteResource"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "hasBody"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "hasBody"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "O",
+          "y": "21"
+        }
+      ],
+      "next_state": "204_NO_CONTENT"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "hasBody"
+      ],
+      "messages": [
+        "true"
+      ],
+      "next_state": "multipleChoices"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "isConflict"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "O",
+          "y": "11"
+        }
+      ],
+      "next_state": "newResource"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "isConflict"
+      ],
+      "messages": [
+        "true"
+      ],
+      "coords": [
+        {
+          "x": "P",
+          "y": "14"
+        }
+      ],
+      "next_state": "409_CONFLICT"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "multipleChoices"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "N",
+          "y": "18"
+        }
+      ],
+      "next_state": "200_OK"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "multipleChoices"
+      ],
+      "messages": [
+        "true"
+      ],
+      "coords": [
+        {
+          "x": "P",
+          "y": "18"
+        },
+        {
+          "x": "P",
+          "y": "19"
+        }
+      ],
+      "next_state": "300_MULTIPLE_CHOICES"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "newResource"
+      ],
+      "messages": [
+        "false"
+      ],
+      "coords": [
+        {
+          "x": "P",
+          "y": "13"
+        },
+        {
+          "x": "Q",
+          "y": "13"
+        },
+        {
+          "x": "Q",
+          "y": "20"
+        }
+      ],
+      "next_state": "hasBody"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "newResource"
+      ],
+      "messages": [
+        "true"
+      ],
+      "coords": [
+        {
+          "x": "Q",
+          "y": "11"
+        },
+        {
+          "x": "Q",
+          "y": "12"
+        }
+      ],
+      "next_state": "201_CREATED"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "postIsRedirect"
+      ],
+      "messages": [
+        "false"
+      ],
+      "next_state": "newResource"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "postIsRedirect"
+      ],
+      "messages": [
+        "true"
+      ],
+      "coords": [
+        {
+          "x": "M",
+          "y": "11"
+        }
+      ],
+      "next_state": "303_SEE_OTHER"
+    },
+    {
+      "__type": "declaration",
+      "names": [
+        "anything",
+        "true",
+        "false"
+      ],
+      "value": "message"
+    },
+    {
+      "__type": "declaration",
+      "names": [
+        "200_OK",
+        "201_CREATED",
+        "202_ACCEPTED",
+        "204_NO_CONTENT",
+        "300_MULTIPLE_CHOICES",
+        "301_MOVED_PERMANENTLY",
+        "303_SEE_OTHER",
+        "304_NOT_MODIFIED",
+        "307_MOVED_TEMPORARILY",
+        "400_BAD_REQUEST",
+        "401_UNAUTHORIZED",
+        "403_FORBIDDEN",
+        "404_NOT_FOUND",
+        "405_METHOD_NOT_ALLOWED",
+        "406_NOT_ACCEPTABLE",
+        "409_CONFLICT",
+        "410_GONE",
+        "412_PRECONDITION_FAILED",
+        "413_PAYLOAD_TOO_LARGE",
+        "414_URI_TOO_LONG",
+        "415_UNSUPPORTED_MEDIA_TYPE",
+        "501_NOT_IMPLEMENTED",
+        "503_SERVICE_UNAVAILABLE",
+        {
+          "name": "start",
+          "center": {
+            "x": "B",
+            "y": "14"
+          }
+        },
+        {
+          "name": "finish",
+          "center": {
+            "x": "R",
+            "y": "22"
+          }
+        }
+      ],
+      "value": "state"
+    },
+    {
+      "__type": "declaration",
+      "names": [
+        {
+          "name": "newResource",
+          "center": {
+            "x": "P",
+            "y": "11"
+          }
+        },
+        {
+          "name": "isConflictCreate",
+          "center": {
+            "x": "P",
+            "y": "03"
+          }
+        },
+        {
+          "name": "hasBody",
+          "center": {
+            "x": "O",
+            "y": "20"
+          }
+        },
+        {
+          "name": "multipleChoices",
+          "center": {
+            "x": "O",
+            "y": "18"
+          }
+        },
+        {
+          "name": "isPut",
+          "center": {
+            "x": "O",
+            "y": "16"
+          }
+        },
+        {
+          "name": "isConflict",
+          "center": {
+            "x": "O",
+            "y": "14"
+          }
+        },
+        {
+          "name": "isPost",
+          "center": {
+            "x": "N",
+            "y": "16"
+          }
+        },
+        {
+          "name": "postIsRedirect",
+          "center": {
+            "x": "N",
+            "y": "11"
+          }
+        },
+        {
+          "name": "allowMissingPostExisting",
+          "center": {
+            "x": "N",
+            "y": "05"
+          }
+        },
+        {
+          "name": "deleteResource",
+          "center": {
+            "x": "M",
+            "y": "20"
+          }
+        },
+        {
+          "name": "isDelete",
+          "center": {
+            "x": "M",
+            "y": "16"
+          }
+        },
+        {
+          "name": "allowMissingPost",
+          "center": {
+            "x": "M",
+            "y": "07"
+          }
+        },
+        {
+          "name": "isPostExisting",
+          "center": {
+            "x": "M",
+            "y": "05"
+          }
+        },
+        {
+          "name": "ifModifiedSinceMatches",
+          "center": {
+            "x": "L",
+            "y": "17"
+          }
+        },
+        {
+          "name": "ifModifiedSinceLater",
+          "center": {
+            "x": "L",
+            "y": "15"
+          }
+        },
+        {
+          "name": "ifModifiedSinceValid",
+          "center": {
+            "x": "L",
+            "y": "14"
+          }
+        },
+        {
+          "name": "ifModifiedSinceExists",
+          "center": {
+            "x": "L",
+            "y": "13"
+          }
+        },
+        {
+          "name": "isPostCreate",
+          "center": {
+            "x": "L",
+            "y": "07"
+          }
+        },
+        {
+          "name": "movedTemporarily",
+          "center": {
+            "x": "L",
+            "y": "05"
+          }
+        },
+        {
+          "name": "ifNoneMatchEtag",
+          "center": {
+            "x": "K",
+            "y": "13"
+          }
+        },
+        {
+          "name": "previouslyExisted",
+          "center": {
+            "x": "K",
+            "y": "07"
+          }
+        },
+        {
+          "name": "movedPermanently",
+          "center": {
+            "x": "K",
+            "y": "05"
+          }
+        },
+        {
+          "name": "headOrGet",
+          "center": {
+            "x": "J",
+            "y": "18"
+          }
+        },
+        {
+          "name": "ifNoneMatchMatches",
+          "center": {
+            "x": "I",
+            "y": "13"
+          }
+        },
+        {
+          "name": "ifNoneMatchExists",
+          "center": {
+            "x": "I",
+            "y": "12"
+          }
+        },
+        {
+          "name": "isPutCreate",
+          "center": {
+            "x": "I",
+            "y": "07"
+          }
+        },
+        {
+          "name": "movedPermanentlyPut",
+          "center": {
+            "x": "I",
+            "y": "04"
+          }
+        },
+        {
+          "name": "ifUnmodifiedSinceMatches",
+          "center": {
+            "x": "H",
+            "y": "12"
+          }
+        },
+        {
+          "name": "ifUnmodifiedSinceValid",
+          "center": {
+            "x": "H",
+            "y": "11"
+          }
+        },
+        {
+          "name": "ifUnmodifiedSinceExists",
+          "center": {
+            "x": "H",
+            "y": "10"
+          }
+        },
+        {
+          "name": "ifMatchExistsCreate",
+          "center": {
+            "x": "H",
+            "y": "07"
+          }
+        },
+        {
+          "name": "ifMatchEtag",
+          "center": {
+            "x": "G",
+            "y": "11"
+          }
+        },
+        {
+          "name": "ifMatchMatches",
+          "center": {
+            "x": "G",
+            "y": "09"
+          }
+        },
+        {
+          "name": "ifMatchExists",
+          "center": {
+            "x": "G",
+            "y": "08"
+          }
+        },
+        {
+          "name": "resourceExists",
+          "center": {
+            "x": "G",
+            "y": "07"
+          }
+        },
+        {
+          "name": "acceptEncodingExists",
+          "center": {
+            "x": "F",
+            "y": "06"
+          }
+        },
+        {
+          "name": "acceptEncodingMatches",
+          "center": {
+            "x": "F",
+            "y": "07"
+          }
+        },
+        {
+          "name": "acceptCharsetExists",
+          "center": {
+            "x": "E",
+            "y": "05"
+          }
+        },
+        {
+          "name": "acceptCharsetMatches",
+          "center": {
+            "x": "E",
+            "y": "06"
+          }
+        },
+        {
+          "name": "acceptLanguageExists",
+          "center": {
+            "x": "D",
+            "y": "04"
+          }
+        },
+        {
+          "name": "acceptLanguageMatches",
+          "center": {
+            "x": "D",
+            "y": "05"
+          }
+        },
+        {
+          "name": "acceptMatches",
+          "center": {
+            "x": "C",
+            "y": "04"
+          }
+        },
+        {
+          "name": "acceptExists",
+          "center": {
+            "x": "C",
+            "y": "03"
+          }
+        },
+        {
+          "name": "options",
+          "center": {
+            "x": "B",
+            "y": "03"
+          }
+        },
+        {
+          "name": "entityTooLarge",
+          "center": {
+            "x": "B",
+            "y": "04"
+          }
+        },
+        {
+          "name": "knownContentType",
+          "center": {
+            "x": "B",
+            "y": "05"
+          }
+        },
+        {
+          "name": "validContentHeaders",
+          "center": {
+            "x": "B",
+            "y": "06"
+          }
+        },
+        {
+          "name": "forbidden",
+          "center": {
+            "x": "B",
+            "y": "07"
+          }
+        },
+        {
+          "name": "isAuthorized",
+          "center": {
+            "x": "B",
+            "y": "08"
+          }
+        },
+        {
+          "name": "malformedRequest",
+          "center": {
+            "x": "B",
+            "y": "09"
+          }
+        },
+        {
+          "name": "allowedMethods",
+          "center": {
+            "x": "B",
+            "y": "10"
+          }
+        },
+        {
+          "name": "uriTooLong",
+          "center": {
+            "x": "B",
+            "y": "11"
+          }
+        },
+        {
+          "name": "knownMethod",
+          "center": {
+            "x": "B",
+            "y": "12"
+          }
+        },
+        {
+          "name": "serviceAvailable",
+          "center": {
+            "x": "B",
+            "y": "13"
+          }
+        }
+      ],
+      "value": "decision"
+    },
+    {
+      "__type": "declaration",
+      "names": [
+        "200_OK",
+        "201_CREATED",
+        "202_ACCEPTED",
+        "204_NO_CONTENT",
+        "300_MULTIPLE_CHOICES",
+        "301_MOVED_PERMANENTLY",
+        "303_SEE_OTHER",
+        "304_NOT_MODIFIED",
+        "307_MOVED_TEMPORARILY",
+        "400_BAD_REQUEST",
+        "401_UNAUTHORIZED",
+        "403_FORBIDDEN",
+        "404_NOT_FOUND",
+        "405_METHOD_NOT_ALLOWED",
+        "406_NOT_ACCEPTABLE",
+        "409_CONFLICT",
+        "410_GONE",
+        "412_PRECONDITION_FAILED",
+        "413_PAYLOAD_TOO_LARGE",
+        "414_URI_TOO_LONG",
+        "415_UNSUPPORTED_MEDIA_TYPE",
+        "501_NOT_IMPLEMENTED",
+        "503_SERVICE_UNAVAILABLE"
+      ],
+      "value": "status_code"
+    }
+  ]
+}

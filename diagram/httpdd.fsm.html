@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+  <head>
+    <title>HTTP Decision Diagram</title>
+    <link rel="stylesheet" href="assets/joint-0.8.1.css"></link>
+    <script>
+      // fix Chrome 48+
+      // http://jointjs.com/blog/get-transform-to-element-polyfill.html
+      SVGElement.prototype.getTransformToElement = SVGElement.prototype.getTransformToElement || function(toElement) {
+          return toElement.getScreenCTM().inverse().multiply(this.getScreenCTM());
+      };
+    </script>
+    <script src="assets/coffee-script.js"></script>
+    <script src="http-decision-diagram/joint.all.js"></script>
+    <script src="assets/joint.shapes.fsa-0.8.1.js"></script>
+    <script type="text/coffeescript" src="http-decision-diagram/httpdd.fsm.html.coffee"></script>
+  </head>
+  <body style="margin:0">
+    <div id="foreword" style="position:absolute; padding:5px; display:none">
+      <button id="to_png">Open as PNG</button>
+      <button id="to_jpeg">Open as JPEG</button>
+      <button id="to_svg">Open as SVG</button>
+      <div><span id="title" style="font-weight:bold"></span> <span id="version"></span></div>
+      <div id="description"></div>
+    </div>
+    <div id="paper" style="pointer-events: none"></div>
+  </body>
+</html>

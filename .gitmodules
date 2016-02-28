@@ -1,0 +1,6 @@
+[submodule "diagram/http-decision-diagram"]
+	path = diagram/http-decision-diagram
+	url = https://github.com/for-GET/http-decision-diagram.git
+[submodule "diagram/api-pegjs"]
+	path = diagram/api-pegjs
+	url = https://github.com/for-GET/api-pegjs.git

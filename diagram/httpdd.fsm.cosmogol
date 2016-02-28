@@ -106,8 +106,10 @@ ifModifiedSinceMatches:true -> isDelete;
 isDelete:false -> isPost;
 isPost:false -> isPut;
 isPost:true -> postIsRedirect;
-isPut:false -> multipleChoices;
+isPut:false -> isPatch;
 isPut:true -> isConflict;
+isPatch:false -> multipleChoices;
+isPatch:true -Q17,Q20-> hasBody;
 isDelete:true -> deleteResource;
 deleteResource:false -M21-> 202_ACCEPTED;
 deleteResource:true -> hasBody;
@@ -166,6 +168,7 @@ newResource:P11,
 isConflictCreate:P03,
 hasBody:O20,
 multipleChoices:O18,
+isPatch:O17,
 isPut:O16,
 isConflict:O14,
 isPost:N16,

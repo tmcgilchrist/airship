@@ -1260,7 +1260,7 @@
       "messages": [
         "false"
       ],
-      "next_state": "multipleChoices"
+      "next_state": "isPatch"
     },
     {
       "__type": "transition",
@@ -1271,6 +1271,36 @@
         "true"
       ],
       "next_state": "isConflict"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "isPatch"
+      ],
+      "messages": [
+        "false"
+      ],
+      "next_state": "multipleChoices"
+    },
+    {
+      "__type": "transition",
+      "states": [
+        "isPatch"
+      ],
+      "messages": [
+        "true"
+      ],
+      "coords": [
+        {
+          "x": "Q",
+          "y": "17"
+        },
+        {
+          "x": "Q",
+          "y": "20"
+        }
+      ],
+      "next_state": "hasBody"
     },
     {
       "__type": "transition",
@@ -1553,6 +1583,13 @@
           "center": {
             "x": "O",
             "y": "18"
+          }
+        },
+        {
+          "name": "isPatch",
+          "center": {
+            "x": "O",
+            "y": "17"
           }
         },
         {

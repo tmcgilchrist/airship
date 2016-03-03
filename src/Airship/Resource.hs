@@ -118,7 +118,7 @@ defaultResource :: Monad m => Resource m
 defaultResource = Resource { allowMissingPost          = return False
                            , allowedMethods            = return [methodOptions, methodGet, methodHead]
                            , contentTypesAccepted      = return []
-                           , contentTypesProvided      = return []
+                           , contentTypesProvided      = return [("text/html", halt status405)]
                            , deleteCompleted           = return False
                            , deleteResource            = return False
                            , entityTooLarge            = return False

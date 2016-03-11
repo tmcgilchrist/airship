@@ -11,8 +11,6 @@ module Airship.Internal.Helpers
     , resourceToWai
     , resourceToWaiT
     , appendRequestPath
-    , lookupParam
-    , lookupParam'
     ) where
 
 #if __GLASGOW_HASKELL__ < 710
@@ -24,7 +22,6 @@ import           Data.Maybe
 #if __GLASGOW_HASKELL__ < 710
 import           Data.Monoid
 #endif
-import qualified Data.HashMap.Strict       as HM
 import           Data.Text                 (Text, intercalate)
 import           Data.Text.Encoding
 import           Data.Time                 (getCurrentTime)
@@ -103,11 +100,11 @@ resourceToWaiT :: Monad m => AirshipConfig -> (Request -> m Wai.Response -> IO W
 resourceToWaiT cfg run routes resource404 req respond = do
     let routeMapping = runRouter routes
         pInfo = Wai.pathInfo req
-        (resource, (params', matched)) = route routeMapping pInfo resource404
+        (resource, matched) = route routeMapping pInfo resource404
     nowTime <- getCurrentTime
     quip <- getQuip
     (=<<) respond . run req $ do
-      (response, trace) <- eitherResponse nowTime params' matched req (flow resource)
+      (response, trace) <- eitherResponse nowTime matched req (flow resource)
       return $ toWaiResponse response cfg (traceHeader trace) quip
 
 getQuip :: IO ByteString
@@ -128,13 +125,3 @@ getQuip = do
 
 traceHeader :: [Text] -> ByteString
 traceHeader = encodeUtf8 . intercalate ","
-
--- | Lookup routing parameter and return 500 Internal Server Error if not found.
--- Not finding the paramter usually means the route doesn't match what
--- the resource is expecting.
-lookupParam :: Monad m => Text -> Webmachine m Text
-lookupParam p = lookupParam' p >>= maybe (halt HTTP.status500) pure
-
--- | Lookup routing parameter.
-lookupParam' :: Monad m => Text -> Webmachine m (Maybe Text)
-lookupParam' p = HM.lookup p <$> params

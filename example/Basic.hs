@@ -43,11 +43,6 @@ getBody = do
 readBody :: MonadIO m => Webmachine m Integer
 readBody = read . unpack <$> getBody
 
-routingParam :: Monad m => Text -> Webmachine m Text
-routingParam t = do
-    p <- params
-    return (p HM.! t)
-
 newtype State = State { _getState :: MVar (HashMap Text Integer) }
 
 resourceWithBody :: (MonadIO m, MonadState State m) => Text -> Resource m
@@ -56,8 +51,8 @@ resourceWithBody t = defaultResource { contentTypesProvided = return [("text/pla
                                      , generateETag = return $ Just $ Strong "abc123"
                                      }
 
-accountResource :: (MonadIO m, MonadState State m) => Resource m
-accountResource = defaultResource
+accountResource :: (MonadIO m, MonadState State m) => Text -> Resource m
+accountResource accountName = defaultResource
     { allowedMethods = return [ HTTP.methodGet
                               , HTTP.methodHead
                               , HTTP.methodPost
@@ -69,8 +64,7 @@ accountResource = defaultResource
         let textAction = do
                 s <- lift get
                 m <- liftIO (readMVar (_getState s))
-                accountNameM <- HM.lookup "name" <$> params
-                let val = fromMaybe 0 (accountNameM >>= flip HM.lookup m)
+                let val = fromMaybe 0 (HM.lookup accountName m)
                 return $ ResponseBuilder (fromHtmlEscapedText
                                                 (pack (show val) <> "\n"))
         return [("text/plain", textAction)]
@@ -80,37 +74,36 @@ accountResource = defaultResource
     , lastModified = Just <$> liftIO getCurrentTime
 
     , resourceExists = do
-        accountName <- routingParam "name"
         s <- lift get
         m <- liftIO (readMVar (_getState s))
         return $ HM.member accountName m
 
     -- POST'ing to this resource adds the integer to the current value
     , processPost = return (PostProcess $ do
-        (val, accountName, s) <- postPutStates
+        (val, s) <- postPutStates
         liftIO (modifyMVar_ (_getState s) (return . HM.insertWith (+) accountName val))
         return ()
         )
 
     , contentTypesAccepted = return [("text/plain", do
-        (val, accountName, s) <- postPutStates
+        (val, s) <- postPutStates
         liftIO (modifyMVar_ (_getState s) (return . HM.insert accountName val))
         return ()
     )]
     }
 
-postPutStates :: (MonadIO m, MonadState State m) => Webmachine m (Integer, Text, State)
+postPutStates :: (MonadIO m, MonadState State m) => Webmachine m (Integer, State)
 postPutStates = do
     val <- readBody
-    accountName <- routingParam "name"
     s <- lift get
-    return (val, accountName, s)
+    return (val, s)
+
 
 myRoutes :: Resource (StateT State IO) -> RoutingSpec (StateT State IO) ()
 myRoutes static = do
-    root                        #> resourceWithBody "Just the root resource"
-    "account" </> var "name"    #> accountResource
-    "static"  </> star          #> static
+    root                        @> resourceWithBody "Just the root resource"
+    "account" /> var            #> accountResource
+    "static"  /> star           @> static
 
 main :: IO ()
 main = do

@@ -28,9 +28,9 @@ library
                    , Airship.Resource
                    , Airship.Resource.Static
                    , Airship.Route
+                   , Airship.Internal.Route
 
-  other-modules:     Airship.Internal.Route
-                   , Airship.Internal.Date
+  other-modules:     Airship.Internal.Date
                    , Airship.Internal.Decision
                    , Airship.Internal.Helpers
                    , Airship.Internal.Parsers

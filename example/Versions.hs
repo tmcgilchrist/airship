@@ -100,7 +100,7 @@ encodeResponse = ResponseBuilder . fromByteString . BSL.toStrict . encode
 
 routes :: Db -> RoutingSpec IO ()
 routes db = do
-      "dirigible" #> dirigibleResource db
+      "dirigible" @> dirigibleResource db
 
 main :: IO ()
 main = do

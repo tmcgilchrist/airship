@@ -23,11 +23,16 @@ import           Network.HTTP.Types
 -- | Used when processing POST requests so as to handle the outcome of the binary decisions between
 -- handling a POST as a create request and whether to redirect after the POST is done.
 -- Credit for this idea goes to Richard Wallace (purefn) on Webcrank.
+--
+-- For processing the POST, an association list of 'MediaType's and 'Webmachine' actions are required
+-- that correspond to the accepted @Content-Type@ values that this resource can accept in a request body.
+-- If a @Content-Type@ header is present but not accounted for, processing will halt with
+-- @415 Unsupported Media Type@.
 data PostResponse m
     = PostCreate [Text] -- ^ Treat this request as a PUT.
     | PostCreateRedirect [Text] -- ^ Treat this request as a PUT, then redirect.
-    | PostProcess (Webmachine m ()) -- ^ Process as a POST, but don't redirect.
-    | PostProcessRedirect (Webmachine m ByteString) -- ^ Process and redirect.
+    | PostProcess [(MediaType, Webmachine m ())] -- ^ Process as a POST, but don't redirect.
+    | PostProcessRedirect [(MediaType, Webmachine m ByteString)] -- ^ Process and redirect.
 
 data Resource m =
     Resource { -- | Whether to allow HTTP POSTs to a missing resource. Default: false.
@@ -136,7 +141,7 @@ defaultResource = Resource { allowMissingPost          = return False
                            , multipleChoices           = return False
                            , patchContentTypesAccepted = return []
                            , previouslyExisted         = return False
-                           , processPost               = return (PostProcess (return ()))
+                           , processPost               = return (PostProcess [])
                            , resourceExists            = return True
                            , serviceAvailable          = return True
                            , uriTooLong                = return False

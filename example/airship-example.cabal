@@ -24,8 +24,8 @@ executable              basic
                       , text
                       , time
                       , unordered-containers
-                      , wai == 3.0.*
-                      , warp == 3.0.*
+                      , wai
+                      , warp
 
 executable            versions
   main-is:              Versions.hs
@@ -45,6 +45,6 @@ executable            versions
                       , containers
                       , uuid
                       , aeson
-                      , wai == 3.0.*
-                      , warp == 3.0.*
+                      , wai
+                      , warp
 

@@ -137,37 +137,34 @@ instance MonadBaseControl b m => MonadBaseControl b (Webmachine m) where
                      $ g' $ getWebmachine m
   restoreM = Webmachine . restoreM . unStMWebmachine
 
--- | A convenience synonym that writes the @Monad@ type constraint for you.
-type Handler m a = Monad m => Webmachine m a
-
 -- Functions inside the Webmachine Monad -------------------------------------
 ------------------------------------------------------------------------------
 
--- | Returns the 'Request' that this 'Handler' is currently processing.
-request :: Handler m Request
+-- | Returns the 'Request' that is currently being processed.
+request :: Monad m => Webmachine m Request
 request = _request <$> ask
 
 -- | Returns the bound routing parameters extracted from the routing system (see "Airship.Route").
-params :: Handler m (HashMap Text Text)
+params :: Monad m => Webmachine m (HashMap Text Text)
 params = _params <$> get
 
-dispatchPath :: Handler m [Text]
+dispatchPath :: Monad m => Webmachine m [Text]
 dispatchPath = _dispatchPath <$> get
 
 -- | Returns the time at which this request began processing.
-requestTime :: Handler m UTCTime
+requestTime :: Monad m => Webmachine m UTCTime
 requestTime = _now <$> ask
 
--- | Returns the 'ResponseHeaders' stored in the current 'Handler'.
-getResponseHeaders :: Handler m ResponseHeaders
+-- | Returns the current 'ResponseHeaders'.
+getResponseHeaders :: Monad m => Webmachine m ResponseHeaders
 getResponseHeaders = stateHeaders <$> get
 
--- | Returns the current 'ResponseBody' that this 'Handler' is storing.
-getResponseBody :: Handler m ResponseBody
+-- | Returns the current 'ResponseBody'.
+getResponseBody :: Monad m => Webmachine m ResponseBody
 getResponseBody = stateBody <$> get
 
 -- | Given a new 'ResponseBody', replaces the stored body with the new one.
-putResponseBody :: ResponseBody -> Handler m ()
+putResponseBody :: Monad m => ResponseBody -> Webmachine m ()
 putResponseBody b = modify updateState
     where updateState rs = rs {stateBody = b}
 

@@ -15,7 +15,6 @@ import Data.HashMap.Strict (HashMap, insert)
 #if __GLASGOW_HASKELL__ < 710
 import           Control.Applicative
 #endif
-import Control.Monad.Identity
 import Control.Monad.Writer (Writer, WriterT (..), execWriter)
 import Control.Monad.Writer.Class (MonadWriter)
 

@@ -21,6 +21,7 @@ module Airship.Types
     , etagToByteString
     , eitherResponse
     , escapedResponse
+    , mapWebmachine
     , runWebmachine
     , request
     , requestTime
@@ -50,8 +51,8 @@ import Control.Monad.Morph
 import Control.Monad.Reader.Class (MonadReader, ask)
 import Control.Monad.State.Class (MonadState, get, modify)
 import Control.Monad.Trans.Control (MonadBaseControl(..))
-import Control.Monad.Trans.Either (EitherT(..), runEitherT, left)
-import Control.Monad.Trans.RWS.Strict (RWST(..), runRWST)
+import Control.Monad.Trans.Either (EitherT(..), runEitherT, left, mapEitherT)
+import Control.Monad.Trans.RWS.Strict (RWST(..), runRWST, mapRWST)
 import Control.Monad.Writer.Class (MonadWriter, tell)
 import Data.ByteString.Char8
 import Data.HashMap.Strict (HashMap)
@@ -213,6 +214,13 @@ eitherResponse :: Monad m => UTCTime -> HashMap Text Text -> [Text] -> Request -
 eitherResponse reqDate reqParams dispatched req resource = do
     (e, trace) <- runWebmachine reqDate reqParams dispatched req resource
     return (both e, trace)
+
+-- | Map both the return value and wrapped computation @m@.
+mapWebmachine :: ( m1 (Either Response a1, ResponseState, Trace)
+                -> m2 (Either Response a2, ResponseState, Trace) )
+              -> Webmachine m1 a1 -> Webmachine m2 a2
+mapWebmachine f =  Webmachine . (mapEitherT $ mapRWST f) . getWebmachine
+
 
 runWebmachine :: Monad m => UTCTime -> HashMap Text Text -> [Text] -> Request -> Webmachine m a -> m (Either (Response) a, Trace)
 runWebmachine reqDate reqParams dispatched req w = do

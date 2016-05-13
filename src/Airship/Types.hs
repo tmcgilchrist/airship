@@ -1,13 +1,14 @@
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE CPP                        #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ImpredicativeTypes         #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE UndecidableInstances       #-}
 
 module Airship.Types
     ( ETag(..)
@@ -16,6 +17,7 @@ module Airship.Types
     , Response(..)
     , ResponseState(..)
     , ResponseBody(..)
+    , ErrorResponses
     , defaultRequest
     , entireRequestBody
     , etagToByteString
@@ -36,36 +38,40 @@ module Airship.Types
     , (#>)
     ) where
 
-import Blaze.ByteString.Builder (Builder)
-import Blaze.ByteString.Builder.ByteString (fromByteString)
-import Blaze.ByteString.Builder.Html.Utf8 (fromHtmlEscapedText)
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as LB
+import           Blaze.ByteString.Builder            (Builder)
+import           Blaze.ByteString.Builder.ByteString (fromByteString)
+import           Blaze.ByteString.Builder.Html.Utf8  (fromHtmlEscapedText)
+import qualified Data.ByteString                     as BS
+import qualified Data.ByteString.Lazy                as LB
 #if __GLASGOW_HASKELL__ < 710
 import           Control.Applicative
 #endif
-import Control.Monad (liftM)
-import Control.Monad.Base (MonadBase)
-import Control.Monad.IO.Class (MonadIO, liftIO)
-import Control.Monad.Morph
-import Control.Monad.Reader.Class (MonadReader, ask)
-import Control.Monad.State.Class (MonadState, get, modify)
-import Control.Monad.Trans.Control (MonadBaseControl(..))
-import Control.Monad.Trans.Either (EitherT(..), runEitherT, left, mapEitherT)
-import Control.Monad.Trans.RWS.Strict (RWST(..), runRWST, mapRWST)
-import Control.Monad.Writer.Class (MonadWriter, tell)
-import Data.ByteString.Char8
-import Data.HashMap.Strict (HashMap)
-import Data.Monoid ((<>))
-import Data.Text (Text)
-import Data.Time.Clock (UTCTime)
+import           Control.Monad                       (liftM)
+import           Control.Monad.Base                  (MonadBase)
+import           Control.Monad.IO.Class              (MonadIO, liftIO)
+import           Control.Monad.Morph
+import           Control.Monad.Reader.Class          (MonadReader, ask)
+import           Control.Monad.State.Class           (MonadState, get, modify)
+import           Control.Monad.Trans.Control         (MonadBaseControl (..))
+import           Control.Monad.Trans.Either          (EitherT (..), left,
+                                                      mapEitherT, runEitherT)
+import           Control.Monad.Trans.RWS.Strict      (RWST (..), mapRWST,
+                                                      runRWST)
+import           Control.Monad.Writer.Class          (MonadWriter, tell)
+import           Data.ByteString.Char8
+import           Data.HashMap.Strict                 (HashMap)
+import           Data.Map.Strict                     (Map)
+import           Data.Monoid                         ((<>))
+import           Data.Text                           (Text)
+import           Data.Time.Clock                     (UTCTime)
+import           Network.HTTP.Media
+import qualified Network.HTTP.Types                  as HTTP
 
-import Network.HTTP.Types ( ResponseHeaders
-                          , Status
-                          )
+import           Network.HTTP.Types                  (ResponseHeaders, Status)
 
-import qualified Network.Wai as Wai
-import           Network.Wai (Request (..), defaultRequest)
+import           Network.Wai                         (Request (..),
+                                                      defaultRequest)
+import qualified Network.Wai                         as Wai
 
 
 -- | Reads the entirety of the request body in a single string.
@@ -76,7 +82,7 @@ entireRequestBody req = liftIO (requestBody req) >>= strictRequestBody' LB.empty
             | BS.null prev = return acc
             | otherwise = liftIO (requestBody req) >>= strictRequestBody' (acc <> LB.fromStrict prev)
 
-data RequestReader = RequestReader { _now :: UTCTime
+data RequestReader = RequestReader { _now     :: UTCTime
                                    , _request :: Request
                                    }
 
@@ -102,18 +108,20 @@ data ResponseBody
 escapedResponse :: Text -> ResponseBody
 escapedResponse = ResponseBuilder . fromHtmlEscapedText
 
-data Response = Response { _responseStatus     :: Status
-                         , _responseHeaders    :: ResponseHeaders
-                         , _responseBody       :: ResponseBody
+data Response = Response { _responseStatus  :: Status
+                         , _responseHeaders :: ResponseHeaders
+                         , _responseBody    :: ResponseBody
                          }
 
-data ResponseState = ResponseState { stateHeaders   :: ResponseHeaders
-                                   , stateBody      :: ResponseBody
-                                   , _params        :: HashMap Text Text
-                                   , _dispatchPath  :: [Text]
+data ResponseState = ResponseState { stateHeaders  :: ResponseHeaders
+                                   , stateBody     :: ResponseBody
+                                   , _params       :: HashMap Text Text
+                                   , _dispatchPath :: [Text]
                                    }
 
 type Trace = [Text]
+
+type ErrorResponses m = Monad m => Map HTTP.Status [(MediaType, Webmachine m ResponseBody)]
 
 newtype Webmachine m a =
     Webmachine { getWebmachine :: EitherT Response (RWST RequestReader Trace ResponseState m) a }
@@ -220,7 +228,6 @@ mapWebmachine :: ( m1 (Either Response a1, ResponseState, Trace)
                 -> m2 (Either Response a2, ResponseState, Trace) )
               -> Webmachine m1 a1 -> Webmachine m2 a2
 mapWebmachine f =  Webmachine . (mapEitherT $ mapRWST f) . getWebmachine
-
 
 runWebmachine :: Monad m => UTCTime -> HashMap Text Text -> [Text] -> Request -> Webmachine m a -> m (Either (Response) a, Trace)
 runWebmachine reqDate reqParams dispatched req w = do

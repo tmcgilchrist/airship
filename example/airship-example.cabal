@@ -19,6 +19,8 @@ executable              basic
                       , airship
                       , blaze-builder >=0.3 && < 0.5
                       , bytestring
+                      , containers
+                      , http-media
                       , http-types >= 0.7
                       , mtl
                       , text
@@ -36,6 +38,8 @@ executable            versions
                       , airship
                       , blaze-builder >=0.3 && < 0.5
                       , bytestring
+                      , containers
+                      , http-media
                       , http-types >= 0.7
                       , mtl
                       , text
@@ -47,4 +51,3 @@ executable            versions
                       , aeson
                       , wai
                       , warp
-

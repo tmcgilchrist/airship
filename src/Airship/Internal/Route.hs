@@ -1,24 +1,24 @@
 {-# OPTIONS_HADDOCK hide #-}
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings          #-}
 
 module Airship.Internal.Route where
 
-import Airship.Resource
+import           Airship.Resource
 
-import Data.Monoid
-import Data.Foldable (foldr')
-import Data.Text (Text)
-import Data.HashMap.Strict (HashMap, insert)
+import           Data.Foldable              (foldr')
+import           Data.HashMap.Strict        (HashMap, insert)
+import           Data.Monoid
+import           Data.Text                  (Text)
 
 #if __GLASGOW_HASKELL__ < 710
 import           Control.Applicative
 #endif
-import Control.Monad.Writer (Writer, WriterT (..), execWriter)
-import Control.Monad.Writer.Class (MonadWriter)
+import           Control.Monad.Writer       (Writer, WriterT (..), execWriter)
+import           Control.Monad.Writer.Class (MonadWriter)
 
-import Data.String (IsString, fromString)
+import           Data.String                (IsString, fromString)
 
 -- | 'Route's represent chunks of text used to match over URLs.
 -- You match hardcoded paths with string literals (and the @-XOverloadedStrings@ extension),
@@ -79,14 +79,21 @@ star = Route [RestUnbound]
 newtype RoutingSpec m a = RoutingSpec { getRouter :: Writer [(Route, Resource m)] a }
     deriving (Functor, Applicative, Monad, MonadWriter [(Route, Resource m)])
 
-route :: [(Route, a)] -> [Text] -> a -> (a, (HashMap Text Text, [Text]))
-route routes pInfo resource404 = foldr' (matchRoute pInfo) (resource404, (mempty, mempty)) routes
+type MatchedRoute a = (a, (HashMap Text Text, [Text]))
 
-matchRoute :: [Text] -> (Route, a) -> (a, (HashMap Text Text, [Text])) -> (a, (HashMap Text Text, [Text]))
-matchRoute paths (rSpec, resource) (previousMatch, previousMap) =
+route :: [(Route, a)]
+      -> [Text]
+      -> Maybe (MatchedRoute a)
+route routes pInfo = foldr' (matchRoute pInfo) Nothing routes
+
+matchRoute :: [Text]
+           -> (Route, a)
+           -> Maybe (MatchedRoute a)
+           -> Maybe (MatchedRoute a)
+matchRoute paths (rSpec, resource) previousMatch =
     case matchesRoute paths rSpec of
-      Nothing -> (previousMatch, previousMap)
-      Just m  -> (resource, m)
+      Nothing -> previousMatch
+      Just m  -> Just (resource, m)
 
 matchesRoute :: [Text] -> Route -> Maybe (HashMap Text Text, [Text])
 matchesRoute paths spec = matchesRoute' paths (getRoute spec) (mempty, mempty) False where

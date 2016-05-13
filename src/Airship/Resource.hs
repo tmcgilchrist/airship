@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ImpredicativeTypes  #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -14,9 +15,11 @@ module Airship.Resource
 import           Airship.Types
 
 import           Data.ByteString    (ByteString)
+#if __GLASGOW_HASKELL__ < 710
+import           Data.Monoid        (mempty)
+#endif
 import           Data.Text          (Text)
 import           Data.Time.Clock    (UTCTime)
-
 import           Network.HTTP.Media (MediaType)
 import           Network.HTTP.Types
 
@@ -111,6 +114,7 @@ data Resource m =
              , uriTooLong                :: Webmachine m Bool
                -- | Returns @501 Not Implemented@ if false. Default: true.
              , validContentHeaders       :: Webmachine m Bool
+             , errorResponses            :: ErrorResponses m
              }
 
 -- | A helper function that terminates execution with @500 Internal Server Error@.
@@ -146,4 +150,5 @@ defaultResource = Resource { allowMissingPost          = return False
                            , serviceAvailable          = return True
                            , uriTooLong                = return False
                            , validContentHeaders       = return True
+                           , errorResponses            = mempty
                            }

@@ -8,22 +8,22 @@ module Versions where
 import           Airship
 import           Blaze.ByteString.Builder.ByteString (fromByteString)
 
-import           Control.Applicative                ((<$>))
+import           Control.Applicative                 ((<$>))
 import           Control.Concurrent.MVar
-import           Control.Monad.State                hiding (State)
+import           Control.Monad.State                 hiding (State)
 
-import qualified Data.ByteString.Lazy               as BSL
-import qualified Data.Text as T
+import qualified Data.ByteString.Lazy                as BSL
+import qualified Data.Text                           as T
 
-import qualified Network.HTTP.Types                 as HTTP
-import           Network.Wai.Handler.Warp           (defaultSettings,
-                                                     runSettings, setHost,
-                                                     setPort)
-import qualified Data.Map as M
-import qualified Data.UUID as U
-import qualified Data.UUID.V4 as U
 import           Data.Aeson
-import qualified System.IO as IO
+import qualified Data.Map                            as M
+import qualified Data.UUID                           as U
+import qualified Data.UUID.V4                        as U
+import qualified Network.HTTP.Types                  as HTTP
+import           Network.Wai.Handler.Warp            (defaultSettings,
+                                                      runSettings, setHost,
+                                                      setPort)
+import qualified System.IO                           as IO
 
 -- ***************************************************************************
 -- Basic Data Store
@@ -52,9 +52,9 @@ list t = modifyMVar t $ \m ->
 newtype DirigibleId = DirigibleId { unDirigibleId :: T.Text } deriving (Eq, Show, Ord)
 
 data Dirigible = Dirigible {
-    dName :: T.Text
-  , dEngines :: Int
-  , dCaptain :: Maybe T.Text
+    dName         :: T.Text
+  , dEngines      :: Int
+  , dCaptain      :: Maybe T.Text
   , dLiftCapacity :: Integer
   } deriving (Eq, Show, Ord)
 
@@ -107,18 +107,13 @@ main = do
     let port = 3000
         host = "127.0.0.1"
         settings = setPort port (setHost host defaultSettings)
-        response404 = escapedResponse "<html><head></head><body><h1>404 Not Found</h1></body></html>"
-        resource404 = defaultResource { resourceExists = return False
-                                      , contentTypesProvided = return
-                                            [ ( "text/html"
-                                              , return response404
-                                              )
-                                            ]
-                                      }
     db <- createDb
     insertDirigibles db
     IO.putStrLn "Listening on port 3000"
-    runSettings settings (resourceToWai defaultAirshipConfig (routes db) resource404)
+    runSettings settings (resourceToWai defaultAirshipConfig (routes db) errors)
+    where
+        errors = let response404 = escapedResponse "<html><head></head><body><h1>404 Not Found</h1></body></html>"
+                 in M.singleton HTTP.status404 [("text/html", return response404)]
 
 insertDirigibles :: Db -> IO ()
 insertDirigibles db = do

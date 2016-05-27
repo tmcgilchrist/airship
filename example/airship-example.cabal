@@ -1,7 +1,7 @@
 name:                   airship-example
 synopsis:               A Webmachine-inspired HTTP library
 description:            A Webmachine-inspired HTTP library
-version:                0.3.0.0
+version:                0.6.0.0
 license:                MIT
 license-file:           LICENSE
 author:                 Reid Draper and Patrick Thomson

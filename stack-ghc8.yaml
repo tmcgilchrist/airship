@@ -1,0 +1,10 @@
+resolver: nightly-2016-05-27
+packages:
+- '.'
+- example/
+
+extra-deps: []
+
+flags: {}
+
+extra-package-dbs: []

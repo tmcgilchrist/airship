@@ -28,9 +28,9 @@ library
                    , Airship.Resource
                    , Airship.Resource.Static
                    , Airship.Route
+                   , Airship.Internal.Date
 
   other-modules:     Airship.Internal.Route
-                   , Airship.Internal.Date
                    , Airship.Internal.Decision
                    , Airship.Internal.Helpers
                    , Airship.Internal.Parsers
@@ -84,3 +84,12 @@ test-suite unit
                , wai >= 3.0 && < 3.3
 
   ghc-options: -Wall -threaded -O1 -fno-warn-orphans
+
+executable benchmark
+  main-is: benchmark/Main.hs
+  default-language:    Haskell2010
+  build-depends:        base >=4.7 && < 5
+                      , airship
+                      , criterion
+                      , bytestring
+                      , time

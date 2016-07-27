@@ -3,7 +3,7 @@ synopsis:               A Webmachine-inspired HTTP library
 description:            A Webmachine-inspired HTTP library
 homepage:               https://github.com/helium/airship/
 Bug-reports:            https://github.com/helium/airship/issues
-version:                0.6.0
+version:                0.7.0
 license:                MIT
 license-file:           LICENSE
 author:                 Reid Draper and Patrick Thomson
@@ -21,6 +21,7 @@ library
   hs-source-dirs: src
   ghc-options:  -Wall
   exposed-modules:   Airship
+                   , Airship.RST
                    , Airship.Config
                    , Airship.Headers
                    , Airship.Helpers

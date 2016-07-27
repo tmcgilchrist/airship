@@ -17,7 +17,8 @@ import           Airship.Resource                 (PostResponse (..),
                                                    Resource (..))
 import           Airship.Types                    (Response (..),
                                                    ResponseBody (..),
-                                                   Webmachine, etagToByteString,
+                                                   Webmachine, addTrace,
+                                                   etagToByteString,
                                                    getResponseBody,
                                                    getResponseHeaders, halt,
                                                    pathInfo, putResponseBody,
@@ -30,7 +31,6 @@ import           Control.Monad                    (when)
 import           Control.Monad.Trans              (lift)
 import           Control.Monad.Trans.State.Strict (StateT (..), evalStateT, get,
                                                    modify)
-import           Control.Monad.Writer.Class       (tell)
 
 
 import           Blaze.ByteString.Builder         (toByteString)
@@ -81,8 +81,8 @@ initFlowState = FlowState Nothing
 flow :: Monad m => Resource m -> Webmachine m Response
 flow r = evalStateT (b13 r) initFlowState
 
-trace :: Monad m => Text -> FlowStateT m ()
-trace t = lift $ tell [t]
+trace :: Monad m => ByteString -> FlowStateT m ()
+trace a = lift $ addTrace a
 
 -----------------------------------------------------------------------------
 -- Header value data newtypes

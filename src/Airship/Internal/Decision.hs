@@ -35,7 +35,7 @@ import           Control.Monad.Writer.Class       (tell)
 
 import           Blaze.ByteString.Builder         (toByteString)
 import           Data.ByteString                  (ByteString, intercalate)
-import           Data.Maybe                       (isJust)
+import           Data.Maybe                       (fromMaybe, isJust)
 import           Data.Text                        (Text)
 import           Data.Time.Clock                  (UTCTime)
 
@@ -99,9 +99,8 @@ negotiateContentTypesAccepted :: Monad m => [(MediaType, Webmachine m a)] -> Flo
 negotiateContentTypesAccepted accepted = do
     req <- lift request
     let reqHeaders = requestHeaders req
-        result = do
-            cType <- lookup HTTP.hContentType reqHeaders
-            mapContentMedia accepted cType
+        cType = "application/octet-stream" `fromMaybe` (lookup HTTP.hContentType reqHeaders)
+        result = mapContentMedia accepted cType
     case result of
         (Just process) -> lift process
         Nothing -> lift $ halt HTTP.status415

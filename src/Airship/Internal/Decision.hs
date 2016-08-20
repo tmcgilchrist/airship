@@ -17,7 +17,8 @@ import           Airship.Resource                 (PostResponse (..),
                                                    Resource (..))
 import           Airship.Types                    (Response (..),
                                                    ResponseBody (..),
-                                                   Webmachine, etagToByteString,
+                                                   Webmachine, addTrace,
+                                                   etagToByteString,
                                                    getResponseBody,
                                                    getResponseHeaders, halt,
                                                    pathInfo, putResponseBody,
@@ -30,12 +31,11 @@ import           Control.Monad                    (when)
 import           Control.Monad.Trans              (lift)
 import           Control.Monad.Trans.State.Strict (StateT (..), evalStateT, get,
                                                    modify)
-import           Control.Monad.Writer.Class       (tell)
 
 
 import           Blaze.ByteString.Builder         (toByteString)
 import           Data.ByteString                  (ByteString, intercalate)
-import           Data.Maybe                       (fromMaybe, isJust)
+import           Data.Maybe                       (isJust)
 import           Data.Text                        (Text)
 import           Data.Time.Clock                  (UTCTime)
 
@@ -81,8 +81,8 @@ initFlowState = FlowState Nothing
 flow :: Monad m => Resource m -> Webmachine m Response
 flow r = evalStateT (b13 r) initFlowState
 
-trace :: Monad m => Text -> FlowStateT m ()
-trace t = lift $ tell [t]
+trace :: Monad m => ByteString -> FlowStateT m ()
+trace a = lift $ addTrace a
 
 -----------------------------------------------------------------------------
 -- Header value data newtypes
@@ -99,8 +99,9 @@ negotiateContentTypesAccepted :: Monad m => [(MediaType, Webmachine m a)] -> Flo
 negotiateContentTypesAccepted accepted = do
     req <- lift request
     let reqHeaders = requestHeaders req
-        cType = "application/octet-stream" `fromMaybe` (lookup HTTP.hContentType reqHeaders)
-        result = mapContentMedia accepted cType
+        result = do
+            cType <- lookup HTTP.hContentType reqHeaders
+            mapContentMedia accepted cType
     case result of
         (Just process) -> lift process
         Nothing -> lift $ halt HTTP.status415

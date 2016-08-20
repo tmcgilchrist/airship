@@ -18,6 +18,7 @@ module Airship.Types
     , ResponseState(..)
     , ResponseBody(..)
     , ErrorResponses
+    , addTrace
     , defaultRequest
     , entireRequestBody
     , etagToByteString
@@ -38,6 +39,7 @@ module Airship.Types
     , (#>)
     ) where
 
+import           Airship.RST
 import           Blaze.ByteString.Builder            (Builder)
 import           Blaze.ByteString.Builder.ByteString (fromByteString)
 import           Blaze.ByteString.Builder.Html.Utf8  (fromHtmlEscapedText)
@@ -51,14 +53,10 @@ import           Control.Monad.Base                  (MonadBase)
 import           Control.Monad.IO.Class              (MonadIO, liftIO)
 import           Control.Monad.Morph
 import           Control.Monad.Reader.Class          (MonadReader, ask)
-import           Control.Monad.State.Class           (MonadState, get, modify)
+import           Control.Monad.State.Class
 import           Control.Monad.Trans.Control         (MonadBaseControl (..))
-import           Control.Monad.Trans.Either          (EitherT (..), left,
-                                                      mapEitherT, runEitherT)
-import           Control.Monad.Trans.RWS.Strict      (RWST (..), mapRWST,
-                                                      runRWST)
 import           Control.Monad.Writer.Class          (MonadWriter, tell)
-import           Data.ByteString.Char8
+import           Data.ByteString.Char8               hiding (reverse)
 import           Data.HashMap.Strict                 (HashMap)
 import           Data.Map.Strict                     (Map)
 import           Data.Monoid                         ((<>))
@@ -117,24 +115,27 @@ data ResponseState = ResponseState { stateHeaders  :: ResponseHeaders
                                    , stateBody     :: ResponseBody
                                    , _params       :: HashMap Text Text
                                    , _dispatchPath :: [Text]
+                                   , decisionTrace :: Trace
                                    }
 
-type Trace = [Text]
+type Trace = [ByteString]
 
 type ErrorResponses m = Monad m => Map HTTP.Status [(MediaType, Webmachine m ResponseBody)]
 
 newtype Webmachine m a =
-    Webmachine { getWebmachine :: EitherT Response (RWST RequestReader Trace ResponseState m) a }
+    Webmachine { getWebmachine :: (RST RequestReader ResponseState Response m) a }
         deriving (Functor, Applicative, Monad, MonadIO, MonadBase b,
                   MonadReader RequestReader,
-                  MonadWriter Trace,
                   MonadState ResponseState)
 
 instance MonadTrans Webmachine where
-    lift = Webmachine . EitherT . (>>= return . Right) . lift
+    lift = Webmachine . RST . helper where
+      helper m _ s = do
+          a <- m
+          return $ (Right a, s)
 
 newtype StMWebmachine m a = StMWebmachine {
-      unStMWebmachine :: StM (EitherT Response (RWST RequestReader Trace ResponseState m)) a
+      unStMWebmachine :: StM (RST RequestReader ResponseState Response m) a
     }
 
 instance MonadBaseControl b m => MonadBaseControl b (Webmachine m) where
@@ -145,6 +146,14 @@ instance MonadBaseControl b m => MonadBaseControl b (Webmachine m) where
                      $ \m -> liftM StMWebmachine
                      $ g' $ getWebmachine m
   restoreM = Webmachine . restoreM . unStMWebmachine
+
+-- Work around old versions of mtl not having a strict modify function
+modify'' :: MonadState s m => (s -> s) -> m ()
+#if MIN_VERSION_mtl(2,2,0)
+modify'' = modify'
+#else
+modify'' f = state (\s -> let s' = f s in s' `seq` ((), s'))
+#endif
 
 -- Functions inside the Webmachine Monad -------------------------------------
 ------------------------------------------------------------------------------
@@ -174,7 +183,7 @@ getResponseBody = stateBody <$> get
 
 -- | Given a new 'ResponseBody', replaces the stored body with the new one.
 putResponseBody :: Monad m => ResponseBody -> Webmachine m ()
-putResponseBody b = modify updateState
+putResponseBody b = modify'' updateState
     where updateState rs = rs {stateBody = b}
 
 -- | Stores the provided 'ByteString' as the responseBody. This is a shortcut for
@@ -191,7 +200,11 @@ halt status = finishWith =<< Response <$> return status <*> getResponseHeaders <
 
 -- | Immediately halts processing and writes the provided 'Response' back to the client.
 finishWith :: Monad m => Response -> Webmachine m a
-finishWith = Webmachine . left
+finishWith = Webmachine . failure
+
+-- | Adds the provided ByteString to the Airship-Trace header.
+addTrace :: Monad m => ByteString -> Webmachine m ()
+addTrace t = modify'' (\s -> s { decisionTrace = t : decisionTrace s })
 
 -- | The @#>@ operator provides syntactic sugar for the construction of association lists.
 -- For example, the following assoc list:
@@ -224,14 +237,14 @@ eitherResponse reqDate reqParams dispatched req resource = do
     return (both e, trace)
 
 -- | Map both the return value and wrapped computation @m@.
-mapWebmachine :: ( m1 (Either Response a1, ResponseState, Trace)
-                -> m2 (Either Response a2, ResponseState, Trace) )
+mapWebmachine :: ( m1 (Either Response a1, ResponseState)
+                -> m2 (Either Response a2, ResponseState))
               -> Webmachine m1 a1 -> Webmachine m2 a2
-mapWebmachine f =  Webmachine . (mapEitherT $ mapRWST f) . getWebmachine
+mapWebmachine f =  Webmachine . (mapRST f) . getWebmachine
 
-runWebmachine :: Monad m => UTCTime -> HashMap Text Text -> [Text] -> Request -> Webmachine m a -> m (Either (Response) a, Trace)
+runWebmachine :: Monad m => UTCTime -> HashMap Text Text -> [Text] -> Request -> Webmachine m a -> m (Either Response a, Trace)
 runWebmachine reqDate reqParams dispatched req w = do
-    let startingState = ResponseState [] Empty reqParams dispatched
+    let startingState = ResponseState [] Empty reqParams dispatched []
         requestReader = RequestReader reqDate req
-    (e, _, t) <- runRWST (runEitherT (getWebmachine w)) requestReader startingState
-    return (e, t)
+    (e, s) <- runRST (getWebmachine w) requestReader startingState
+    return (e, reverse $ decisionTrace s)

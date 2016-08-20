@@ -20,7 +20,7 @@ module Airship.Internal.Helpers
 import           Control.Applicative
 #endif
 import           Control.Monad             (join)
-import           Data.ByteString           (ByteString)
+import           Data.ByteString           (ByteString, intercalate)
 import qualified Data.ByteString.Lazy      as LB
 import           Data.Maybe
 #if __GLASGOW_HASKELL__ < 710
@@ -29,8 +29,7 @@ import           Data.Monoid
 import           Data.Foldable             (forM_)
 import qualified Data.HashMap.Strict       as HM
 import qualified Data.Map.Strict           as M
-import           Data.Text                 (Text, intercalate)
-import           Data.Text.Encoding
+import           Data.Text                 (Text)
 import           Data.Time                 (getCurrentTime)
 import           Lens.Micro                ((^.))
 import           Network.HTTP.Media
@@ -176,8 +175,8 @@ getQuip = do
                 , "shut it down"
                 ]
 
-traceHeader :: [Text] -> ByteString
-traceHeader = encodeUtf8 . intercalate ","
+traceHeader :: [ByteString] -> ByteString
+traceHeader = intercalate ","
 
 -- | Lookup routing parameter and return 500 Internal Server Error if not found.
 -- Not finding the paramter usually means the route doesn't match what

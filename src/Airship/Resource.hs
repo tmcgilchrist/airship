@@ -15,7 +15,7 @@ import           Airship.Types
 
 import           Data.ByteString    (ByteString)
 #if __GLASGOW_HASKELL__ < 710
-import           Data.Monoid        (Monoid, mappend, mempty)
+import           Data.Monoid        (mappend, mempty)
 #endif
 import           Data.Text          (Text)
 import           Data.Time.Clock    (UTCTime)
@@ -152,8 +152,3 @@ defaultResource = Resource { allowMissingPost          = return False
                            , validContentHeaders       = return True
                            , errorResponses            = mempty
                            }
-
-
-instance Monad m => Monoid (Resource m) where
-    mempty       = defaultResource
-    mappend x _  = x

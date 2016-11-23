@@ -1,9 +1,7 @@
 {-# LANGUAGE CPP                        #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE RankNTypes                 #-}
 {-# OPTIONS_HADDOCK hide                #-}
 
 module Airship.Internal.Route where
@@ -48,20 +46,9 @@ data RouteLeaf m = RouteMatch (Resource m) [Text]
                  | RouteMatchOrVar (Resource m) [Text]
                  | Wildcard (Resource m)
 
-instance Monad m => Monoid (RouteLeaf m) where
-    mempty                                    = RVar
-    mappend RVar RVar                         = RVar
-    mappend (Wildcard x) _                    = Wildcard x
-    mappend _ (Wildcard x)                    = Wildcard x
-    mappend (RouteMatch x y) (RouteMatch _ _) = RouteMatch x y
-    mappend (RouteMatch x y) RVar             = RouteMatchOrVar x y
-    mappend RVar (RouteMatch x y)             = RouteMatchOrVar x y
-    mappend (RouteMatchOrVar x y) _           = RouteMatchOrVar x y
-    mappend _ (RouteMatchOrVar x y)           = RouteMatchOrVar x y
-
 
 runRouter :: RoutingSpec m a -> Trie (RouteLeaf m)
-runRouter routes = execWriter (getRouter routes)
+runRouter routes = Trie.fromList $ execWriter (getRouter routes)
 
 -- | @a '</>' b@ separates the path components @a@ and @b@ with a slash.
 -- This is actually just a synonym for 'mappend'.
@@ -101,21 +88,21 @@ star = Route [RestUnbound]
 --    route spec.
 -- 3. Repeat step 2 for every `var` encountered until the route
  --   is completed and maps to a resource.
-(#>) :: forall m a. MonadWriter (Trie (RouteLeaf a)) m
+(#>) :: MonadWriter [(B.ByteString, (RouteLeaf a))] m
      => Route -> Resource a -> m ()
 k #> v = do
-    let (key, routeTrie, vars, isWild) = foldl routeFoldFun ("", Trie.empty, [], False) (getRoute k)
+    let (key, routes, vars, isWild) = foldl routeFoldFun ("", [], [], False) (getRoute k)
         key' = if BC8.null key then "/"
                else key
         ctor = if isWild then Wildcard v
                else RouteMatch v vars
-    tell $ Trie.insert key' ctor routeTrie
+    tell $ (key', ctor) : routes
     where
         routeFoldFun (kps, rt, vs, False) (Bound x) =
             (B.concat [kps, "/", toBS x], rt, vs, False)
         routeFoldFun (kps, rt, vs, False) (Var x) =
             let partKey = hash $ B.concat [kps, "var"]
-                rt' = Trie.insert kps RVar rt
+                rt' = (kps, RVar) : rt
             in (partKey, rt', x:vs, False)
         routeFoldFun (kps, rt, vs, False) RestUnbound =
             (kps, rt, vs, True)
@@ -124,9 +111,10 @@ k #> v = do
         toBS = BC8.pack . T.unpack
 
 
-(#>=) :: forall m a. MonadWriter (Trie (RouteLeaf a)) m
+(#>=) :: MonadWriter [(B.ByteString, (RouteLeaf a))] m
       => Route -> m (Resource a) -> m ()
 k #>= mv = mv >>= (k #>)
+
 
 -- | Represents a fully-specified set of routes that map paths (represented as 'Route's) to 'Resource's. 'RoutingSpec's are declared with do-notation, to wit:
 --
@@ -139,17 +127,16 @@ k #>= mv = mv >>= (k #>)
 --      "anything" '</>' star                  #> wildcardResource
 -- @
 --
-newtype RoutingSpec m a = RoutingSpec { getRouter :: Writer (Trie (RouteLeaf m)) a }
-    deriving ( Functor
-             , Applicative
-             , Monad
-             , MonadWriter (Trie (RouteLeaf m))
-             )
+newtype RoutingSpec m a = RoutingSpec {
+        getRouter :: Writer [(B.ByteString, RouteLeaf m)] a
+    } deriving ( Functor, Applicative, Monad
+               , MonadWriter [(B.ByteString, RouteLeaf m)]
+               )
 
 type MatchedRoute a = (a, (HashMap Text Text, [Text]))
 
 
-route :: forall a.Trie (RouteLeaf a)
+route :: Trie (RouteLeaf a)
       -> BC8.ByteString
       -> Maybe (Resource a, (HashMap Text Text, [Text]))
 route routes pInfo = let matchRes = Trie.match routes pInfo

@@ -25,6 +25,12 @@ which is licensed under the three-clause BSD license.
 Copyright (c) 2009, Snap Framework authors (see CONTRIBUTORS)
 All rights reserved.
 
+Portions of this software have been extracted from Kazu Yamamoto's
+http-date library, which is licensed under the three-clause BSD license.
+
+Copyright (c) 2009, IIJ Innovation Institute Inc.
+All rights reserved.
+
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
 

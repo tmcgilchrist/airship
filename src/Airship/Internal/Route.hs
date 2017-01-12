@@ -48,7 +48,29 @@ data RouteLeaf m = RouteMatch (Resource m) [Text]
 
 
 runRouter :: RoutingSpec m a -> Trie (RouteLeaf m)
-runRouter routes = Trie.fromList $ execWriter (getRouter routes)
+runRouter routes = toTrie $ execWriter (getRouter routes)
+    where
+        -- Custom version of Trie.fromList that resolves key conflicts
+        -- in the desired manner. In the case of duplicate routes the
+        -- routes specified first are favored over any subsequent
+        -- specifications.
+        toTrie = foldr (uncurry insertOrReplace) Trie.empty
+        insertOrReplace k v t =
+            case Trie.member k t of
+                True ->
+                    let newV = mergeValues (Trie.lookup k t) v
+                    in Trie.insert k newV t
+                False ->
+                    Trie.insert k v t
+        mergeValues (Just (Wildcard x)) _                              = Wildcard x
+        mergeValues _ (Wildcard x)                                     = Wildcard x
+        mergeValues (Just RVar) RVar                                   = RVar
+        mergeValues (Just RVar) (RouteMatch x y)                       = RouteMatchOrVar x y
+        mergeValues (Just (RouteMatch _ _)) (RouteMatch x y)           = RouteMatch x y
+        mergeValues (Just (RouteMatch x y)) RVar                       = RouteMatchOrVar x y
+        mergeValues (Just (RouteMatchOrVar _ _)) (RouteMatch x y)      = RouteMatchOrVar x y
+        mergeValues (Just (RouteMatchOrVar x y)) _                     = RouteMatchOrVar x y
+        mergeValues _ v                                                = v
 
 -- | @a '</>' b@ separates the path components @a@ and @b@ with a slash.
 -- This is actually just a synonym for 'mappend'.
@@ -154,7 +176,7 @@ matchRoute' _routes Nothing _ps _dsp =
 matchRoute' routes (Just (matched, RouteMatchOrVar r vars, "")) ps dsp =
     -- The matched key is also a prefix of other routes, but the
     -- entire path matched so handle like a RouteMatch.
-    matchRoute' routes (Just (matched, RouteMatchOrVar r vars, "")) ps dsp
+    matchRoute' routes (Just (matched, RouteMatch r vars, "")) ps dsp
 matchRoute' _routes (Just (matched, RouteMatch r vars, "")) ps dsp =
     -- The entire path matched so return the resource, params, and
     -- dispatch path
@@ -174,18 +196,23 @@ matchRoute' routes (Just (matched, RouteMatchOrVar _r _vars, rest)) ps dsp =
     -- the value were RVar.
     matchRoute' routes (Just (matched, RVar, rest)) ps dsp
 matchRoute' routes (Just (matched, RVar, rest)) ps dsp =
-    -- Part of the request path matched and the trie value at the
-    -- matched prefix is a RVar so calculate the key for the next part
-    -- of the route and continue attempting to match.
-    let nextKey = B.concat [ hash $ B.concat [matched, "var"]
-                            , BC8.dropWhile (/='/') $ BC8.dropWhile (=='/') rest
-                            ]
-        updDsp = if isNothing dsp then Just mempty
-                 else dsp
-        paramVal = T.pack . BC8.unpack . BC8.takeWhile (/='/')
-                   $ BC8.dropWhile (=='/') rest
-        matchRes = Trie.match routes nextKey
-    in matchRoute' routes matchRes (paramVal:ps) updDsp
+    -- If the rest of the request path does not begin with a '/' then
+    -- the request is for another resource and this is not a match.
+    case (not (BC8.null rest)) && (BC8.head rest == '/') of
+        True ->
+            -- Part of the request path matched and the trie value at the
+            -- matched prefix is a RVar so calculate the key for the next part
+            -- of the route and continue attempting to match.
+            let nextKey = B.concat [ hash $ B.concat [matched, "var"]
+                                   , BC8.dropWhile (/='/') $ BC8.dropWhile (=='/') rest
+                                   ]
+                updDsp = if isNothing dsp then Just mempty
+                         else dsp
+                paramVal = T.pack . BC8.unpack . BC8.takeWhile (/='/')
+                           $ BC8.dropWhile (=='/') rest
+                matchRes = Trie.match routes nextKey
+            in matchRoute' routes matchRes (paramVal:ps) updDsp
+        False -> Nothing
 matchRoute' _routes (Just (_matched, Wildcard r, rest)) _ps _dsp =
     -- Encountered a wildcard (star) value in the trie so it's a match
     Just (r, (mempty, (T.pack . BC8.unpack) <$> [BC8.dropWhile (=='/') rest]))

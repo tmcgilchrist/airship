@@ -15,7 +15,7 @@ import           Airship.Types
 
 import           Data.ByteString    (ByteString)
 #if __GLASGOW_HASKELL__ < 710
-import           Data.Monoid        (mempty)
+import           Data.Monoid        (mappend, mempty)
 #endif
 import           Data.Text          (Text)
 import           Data.Time.Clock    (UTCTime)
@@ -115,6 +115,7 @@ data Resource m =
              , validContentHeaders       :: Webmachine m Bool
              , errorResponses            :: ErrorResponses m
              }
+
 
 -- | A helper function that terminates execution with @500 Internal Server Error@.
 serverError :: Monad m => Webmachine m a

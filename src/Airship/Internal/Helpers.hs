@@ -113,7 +113,7 @@ resourceToWaiT :: Monad m =>
                -> Wai.Application
 resourceToWaiT cfg run routes errors req respond = do
     let routeMapping = runRouter routes
-        pInfo = Wai.pathInfo req
+        pInfo = Wai.rawPathInfo req
     quip <- getQuip
     nowTime <- getCurrentTime
     let (er, (ps, matched), r) =

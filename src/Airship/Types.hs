@@ -36,7 +36,6 @@ module Airship.Types
     , putResponseBS
     , halt
     , finishWith
-    , (#>)
     ) where
 
 import           Airship.RST
@@ -55,7 +54,6 @@ import           Control.Monad.Morph
 import           Control.Monad.Reader.Class          (MonadReader, ask)
 import           Control.Monad.State.Class
 import           Control.Monad.Trans.Control         (MonadBaseControl (..))
-import           Control.Monad.Writer.Class          (MonadWriter, tell)
 import           Data.ByteString.Char8               hiding (reverse)
 import           Data.HashMap.Strict                 (HashMap)
 import           Data.Map.Strict                     (Map)
@@ -205,28 +203,6 @@ finishWith = Webmachine . failure
 -- | Adds the provided ByteString to the Airship-Trace header.
 addTrace :: Monad m => ByteString -> Webmachine m ()
 addTrace t = modify'' (\s -> s { decisionTrace = t : decisionTrace s })
-
--- | The @#>@ operator provides syntactic sugar for the construction of association lists.
--- For example, the following assoc list:
---
--- @
---     [("run", "jewels"), ("blue", "suede"), ("zion", "wolf")]
--- @
---
--- can be represented as such:
---
--- @
---     execWriter $ do
---       "run" #> "jewels"
---       "blue" #> "suede"
---       "zion" #> "wolf"
--- @
---
--- It used in 'RoutingSpec' declarations to indicate that a particular 'Route' maps
--- to a given 'Resource', but can be used in many other places where association lists
--- are expected, such as 'contentTypesProvided'.
-(#>) :: MonadWriter [(k, v)] m => k -> v -> m ()
-k #> v = tell [(k, v)]
 
 both :: Either a a -> a
 both = either id id

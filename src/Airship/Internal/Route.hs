@@ -14,7 +14,7 @@ import qualified Data.ByteString            as B
 import qualified Data.ByteString.Base64     as Base64
 import qualified Data.ByteString.Char8      as BC8
 import           Data.HashMap.Strict        (HashMap, fromList)
-import qualified Data.List                  as L (foldr)
+import qualified Data.List                  as L (foldl')
 import           Data.Maybe                 (isNothing)
 import           Data.Monoid
 import           Data.Text                  (Text)
@@ -56,9 +56,9 @@ runRouter routes = toTrie $ execWriter (getRouter routes)
         -- in the desired manner. In the case of duplicate routes the
         -- routes specified first are favored over any subsequent
         -- specifications.
-        toTrie = L.foldr (uncurry insertOrReplace) Trie.empty
-        insertOrReplace k v t =
-            let newV = maybe v (`mergeValues` v) $ Trie.lookup k t
+        toTrie = L.foldl' insertOrReplace Trie.empty
+        insertOrReplace t (k, v) =
+            let newV = maybe v (mergeValues v) $ Trie.lookup k t
             in Trie.insert k newV t
         mergeValues (Wildcard x) _                              = Wildcard x
         mergeValues _ (Wildcard x)                                     = Wildcard x

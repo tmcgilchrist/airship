@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP                        #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# OPTIONS_HADDOCK hide                #-}
 
@@ -9,10 +10,11 @@ module Airship.Internal.Route where
 import           Airship.Resource           as Resource
 
 import           Control.Monad.Writer.Class (MonadWriter, tell)
-import           Crypto.Hash.SHA256
 import qualified Data.ByteString            as B
+import qualified Data.ByteString.Base64     as Base64
 import qualified Data.ByteString.Char8      as BC8
 import           Data.HashMap.Strict        (HashMap, fromList)
+import qualified Data.List                  as L (foldr)
 import           Data.Maybe                 (isNothing)
 import           Data.Monoid
 import           Data.Text                  (Text)
@@ -54,22 +56,18 @@ runRouter routes = toTrie $ execWriter (getRouter routes)
         -- in the desired manner. In the case of duplicate routes the
         -- routes specified first are favored over any subsequent
         -- specifications.
-        toTrie = foldr (uncurry insertOrReplace) Trie.empty
+        toTrie = L.foldr (uncurry insertOrReplace) Trie.empty
         insertOrReplace k v t =
-            case Trie.member k t of
-                True ->
-                    let newV = mergeValues (Trie.lookup k t) v
-                    in Trie.insert k newV t
-                False ->
-                    Trie.insert k v t
-        mergeValues (Just (Wildcard x)) _                              = Wildcard x
+            let newV = maybe v (`mergeValues` v) $ Trie.lookup k t
+            in Trie.insert k newV t
+        mergeValues (Wildcard x) _                              = Wildcard x
         mergeValues _ (Wildcard x)                                     = Wildcard x
-        mergeValues (Just RVar) RVar                                   = RVar
-        mergeValues (Just RVar) (RouteMatch x y)                       = RouteMatchOrVar x y
-        mergeValues (Just (RouteMatch _ _)) (RouteMatch x y)           = RouteMatch x y
-        mergeValues (Just (RouteMatch x y)) RVar                       = RouteMatchOrVar x y
-        mergeValues (Just (RouteMatchOrVar _ _)) (RouteMatch x y)      = RouteMatchOrVar x y
-        mergeValues (Just (RouteMatchOrVar x y)) _                     = RouteMatchOrVar x y
+        mergeValues RVar RVar                                   = RVar
+        mergeValues RVar (RouteMatch x y)                       = RouteMatchOrVar x y
+        mergeValues (RouteMatch _ _) (RouteMatch x y)           = RouteMatch x y
+        mergeValues (RouteMatch x y) RVar                       = RouteMatchOrVar x y
+        mergeValues (RouteMatchOrVar _ _) (RouteMatch x y)      = RouteMatchOrVar x y
+        mergeValues (RouteMatchOrVar x y) _                     = RouteMatchOrVar x y
         mergeValues _ v                                                = v
 
 -- | @a '</>' b@ separates the path components @a@ and @b@ with a slash.
@@ -105,7 +103,7 @@ star = Route [RestUnbound]
 
 -- Routing trie creation algorithm
 -- 1. Store full paths as keys up to first `var`
--- 2. Take SHA256 digest of the URL portion preceding the
+-- 2. Calculate Base64 encoding of the URL portion preceding the
 --    `var` ++ "var" and use that as key for the next part of the
 --    route spec.
 -- 3. Repeat step 2 for every `var` encountered until the route
@@ -123,7 +121,7 @@ k #> v = do
         routeFoldFun (kps, rt, vs, False) (Bound x) =
             (B.concat [kps, "/", toBS x], rt, vs, False)
         routeFoldFun (kps, rt, vs, False) (Var x) =
-            let partKey = hash $ B.concat [kps, "var"]
+            let partKey = Base64.encode $ B.concat [kps, "var"]
                 rt' = (kps, RVar) : rt
             in (partKey, rt', x:vs, False)
         routeFoldFun (kps, rt, vs, False) RestUnbound =
@@ -195,24 +193,23 @@ matchRoute' routes (Just (matched, RouteMatchOrVar _r _vars, rest)) ps dsp =
     -- matched prefix is a RouteMatchOrVar so handle it the same as if
     -- the value were RVar.
     matchRoute' routes (Just (matched, RVar, rest)) ps dsp
-matchRoute' routes (Just (matched, RVar, rest)) ps dsp =
-    -- If the rest of the request path does not begin with a '/' then
-    -- the request is for another resource and this is not a match.
-    case (not (BC8.null rest)) && (BC8.head rest == '/') of
-        True ->
-            -- Part of the request path matched and the trie value at the
-            -- matched prefix is a RVar so calculate the key for the next part
-            -- of the route and continue attempting to match.
-            let nextKey = B.concat [ hash $ B.concat [matched, "var"]
-                                   , BC8.dropWhile (/='/') $ BC8.dropWhile (=='/') rest
-                                   ]
-                updDsp = if isNothing dsp then Just mempty
-                         else dsp
-                paramVal = T.pack . BC8.unpack . BC8.takeWhile (/='/')
-                           $ BC8.dropWhile (=='/') rest
-                matchRes = Trie.match routes nextKey
-            in matchRoute' routes matchRes (paramVal:ps) updDsp
-        False -> Nothing
+matchRoute' routes (Just (matched, RVar, rest)) ps dsp
+    | BC8.null rest = Nothing
+    | BC8.take 2 rest == "//" = Nothing
+    | BC8.head rest == '/' =
+        -- Part of the request path matched and the trie value at the
+        -- matched prefix is a RVar so calculate the key for the next part
+        -- of the route and continue attempting to match.
+        let nextKey = B.concat [ Base64.encode $ B.concat [matched, "var"]
+                               , BC8.dropWhile (/='/') $ BC8.dropWhile (=='/') rest
+                               ]
+            updDsp = if isNothing dsp then Just mempty
+                     else dsp
+            paramVal = T.pack . BC8.unpack . BC8.takeWhile (/='/')
+                       $ BC8.dropWhile (=='/') rest
+            matchRes = Trie.match routes nextKey
+        in matchRoute' routes matchRes (paramVal:ps) updDsp
+    | otherwise = Nothing
 matchRoute' _routes (Just (_matched, Wildcard r, rest)) _ps _dsp =
     -- Encountered a wildcard (star) value in the trie so it's a match
     Just (r, (mempty, (T.pack . BC8.unpack) <$> [BC8.dropWhile (=='/') rest]))

@@ -116,14 +116,17 @@ resourceToWaiT cfg run routes errors req respond = do
         pInfo = Wai.rawPathInfo req
     quip <- getQuip
     nowTime <- getCurrentTime
-    let (er, (ps, matched), r) =
+    let (er, (reqParams, dispatched), routePath', r) =
          case route routeMapping pInfo of
              Nothing ->
-                 (errors, (mempty, []), return $ Response HTTP.status404 [(HTTP.hContentType, "text/plain")] Empty)
-             Just (resource, pm) ->
-                 (M.union (errorResponses resource) errors, pm, flow resource)
+                 (errors, (mempty, []), "", return $ Response HTTP.status404 [(HTTP.hContentType, "text/plain")] Empty)
+             Just (RoutedResource matchedRoute resource, pm) ->
+                 (M.union (errorResponses resource) errors, pm, routeText matchedRoute, flow resource)
+        requestReader = RequestReader nowTime req routePath'
+        startingState = ResponseState [] Empty reqParams dispatched []
     respond =<< run req (do
-        (response, trace) <- eitherResponse nowTime ps matched req (r >>= errorResponse er)
+        (response, trace) <-
+            eitherResponse requestReader startingState (r >>= errorResponse er)
         return $ toWaiResponse response cfg (traceHeader trace) quip)
 
 

@@ -5,7 +5,21 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# OPTIONS_HADDOCK hide                #-}
 
-module Airship.Internal.Route where
+module Airship.Internal.Route
+    ( RoutingSpec
+    , Route
+    , RouteLeaf
+    , RoutedResource(..)
+    , root
+    , var
+    , star
+    , (</>)
+    , (#>)
+    , (#>=)
+    , runRouter
+    , route
+    , routeText
+    ) where
 
 import           Airship.Resource           as Resource
 
@@ -18,7 +32,7 @@ import qualified Data.List                  as L (foldl')
 import           Data.Maybe                 (isNothing)
 import           Data.Monoid
 import           Data.Text                  (Text)
-import qualified Data.Text                  as T (pack, unpack)
+import qualified Data.Text                  as T (pack, unpack, intercalate)
 import           Data.Trie                  (Trie)
 import qualified Data.Trie                  as Trie
 
@@ -35,18 +49,35 @@ import           Data.String                (IsString, fromString)
 -- named variables with the 'var' combinator, and wildcards with 'star'.
 newtype Route = Route { getRoute :: [BoundOrUnbound] } deriving (Show, Monoid)
 
+routeText :: Route -> Text
+routeText (Route parts) =
+    T.intercalate "/" ("" : (boundOrUnboundText <$> parts))
+
 data BoundOrUnbound = Bound Text
                     | Var Text
                     | RestUnbound deriving (Show)
+
+
+boundOrUnboundText :: BoundOrUnbound -> Text
+boundOrUnboundText (Bound t) = t
+boundOrUnboundText (Var t) = ":" <> t
+boundOrUnboundText (RestUnbound) = "*"
+
+
+
 
 instance IsString Route where
     fromString s = Route [Bound (fromString s)]
 
 
-data RouteLeaf m = RouteMatch (Resource m) [Text]
+data RoutedResource m
+    = RoutedResource Route (Resource m)
+
+
+data RouteLeaf m = RouteMatch (RoutedResource m) [Text]
                  | RVar
-                 | RouteMatchOrVar (Resource m) [Text]
-                 | Wildcard (Resource m)
+                 | RouteMatchOrVar (RoutedResource m) [Text]
+                 | Wildcard (RoutedResource m)
 
 
 runRouter :: RoutingSpec m a -> Trie (RouteLeaf m)
@@ -114,8 +145,9 @@ k #> v = do
     let (key, routes, vars, isWild) = foldl routeFoldFun ("", [], [], False) (getRoute k)
         key' = if BC8.null key then "/"
                else key
-        ctor = if isWild then Wildcard v
-               else RouteMatch v vars
+        ctor = if isWild
+                  then Wildcard (RoutedResource k v)
+                  else RouteMatch (RoutedResource k v) vars
     tell $ (key', ctor) : routes
     where
         routeFoldFun (kps, rt, vs, False) (Bound x) =
@@ -153,12 +185,10 @@ newtype RoutingSpec m a = RoutingSpec {
                , MonadWriter [(B.ByteString, RouteLeaf m)]
                )
 
-type MatchedRoute a = (a, (HashMap Text Text, [Text]))
-
 
 route :: Trie (RouteLeaf a)
       -> BC8.ByteString
-      -> Maybe (Resource a, (HashMap Text Text, [Text]))
+      -> Maybe (RoutedResource a, (HashMap Text Text, [Text]))
 route routes pInfo = let matchRes = Trie.match routes pInfo
                      in matchRoute' routes matchRes mempty Nothing
 
@@ -167,7 +197,7 @@ matchRoute' :: Trie (RouteLeaf a)
             -> Maybe (B.ByteString, RouteLeaf a, B.ByteString)
             -> [Text]
             -> Maybe B.ByteString
-            -> Maybe (Resource a, (HashMap Text Text, [Text]))
+            -> Maybe (RoutedResource a, (HashMap Text Text, [Text]))
 matchRoute' _routes Nothing _ps _dsp =
     -- Nothing even partially matched the route
     Nothing

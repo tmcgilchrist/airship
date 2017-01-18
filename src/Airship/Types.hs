@@ -14,6 +14,7 @@ module Airship.Types
     ( ETag(..)
     , Webmachine
     , Request(..)
+    , RequestReader(..)
     , Response(..)
     , ResponseState(..)
     , ResponseBody(..)
@@ -28,6 +29,7 @@ module Airship.Types
     , runWebmachine
     , request
     , requestTime
+    , routePath
     , getResponseHeaders
     , getResponseBody
     , params
@@ -78,8 +80,9 @@ entireRequestBody req = liftIO (requestBody req) >>= strictRequestBody' LB.empty
             | BS.null prev = return acc
             | otherwise = liftIO (requestBody req) >>= strictRequestBody' (acc <> LB.fromStrict prev)
 
-data RequestReader = RequestReader { _now     :: UTCTime
-                                   , _request :: Request
+data RequestReader = RequestReader { _now       :: UTCTime
+                                   , _request   :: Request
+                                   , _routePath :: Text
                                    }
 
 data ETag = Strong ByteString
@@ -160,6 +163,13 @@ modify'' f = state (\s -> let s' = f s in s' `seq` ((), s'))
 request :: Monad m => Webmachine m Request
 request = _request <$> ask
 
+-- | Returns the route path that was matched during route evaluation. This is
+-- not the path specified in the request, but rather the route in the
+-- 'RoutingSpec' that matched the request URL. Variables names are prefixed
+-- with @:@, and free ("star") paths are designated with @*@.
+routePath :: Monad m => Webmachine m Text
+routePath = _routePath <$> ask
+
 -- | Returns the bound routing parameters extracted from the routing system (see "Airship.Route").
 params :: Monad m => Webmachine m (HashMap Text Text)
 params = _params <$> get
@@ -207,9 +217,9 @@ addTrace t = modify'' (\s -> s { decisionTrace = t : decisionTrace s })
 both :: Either a a -> a
 both = either id id
 
-eitherResponse :: Monad m => UTCTime -> HashMap Text Text -> [Text] -> Request -> Webmachine m Response -> m (Response, Trace)
-eitherResponse reqDate reqParams dispatched req resource = do
-    (e, trace) <- runWebmachine reqDate reqParams dispatched req resource
+eitherResponse :: Monad m => RequestReader -> ResponseState -> Webmachine m Response -> m (Response, Trace)
+eitherResponse requestReader startingState w = do
+    (e, trace) <- runWebmachine requestReader startingState w
     return (both e, trace)
 
 -- | Map both the return value and wrapped computation @m@.
@@ -218,9 +228,7 @@ mapWebmachine :: ( m1 (Either Response a1, ResponseState)
               -> Webmachine m1 a1 -> Webmachine m2 a2
 mapWebmachine f =  Webmachine . (mapRST f) . getWebmachine
 
-runWebmachine :: Monad m => UTCTime -> HashMap Text Text -> [Text] -> Request -> Webmachine m a -> m (Either Response a, Trace)
-runWebmachine reqDate reqParams dispatched req w = do
-    let startingState = ResponseState [] Empty reqParams dispatched []
-        requestReader = RequestReader reqDate req
+runWebmachine :: Monad m => RequestReader -> ResponseState -> Webmachine m a -> m (Either Response a, Trace)
+runWebmachine requestReader startingState w = do
     (e, s) <- runRST (getWebmachine w) requestReader startingState
     return (e, reverse $ decisionTrace s)

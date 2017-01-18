@@ -11,6 +11,7 @@ module Airship.Internal.Helpers
     , redirectPermanently
     , resourceToWai
     , resourceToWaiT
+    , resourceToWaiT'
     , appendRequestPath
     , lookupParam
     , lookupParam'
@@ -114,9 +115,20 @@ resourceToWaiT :: Monad m
                -> RoutingSpec m ()
                -> ErrorResponses m
                -> Wai.Application
-resourceToWaiT cfg run routes errors req respond = do
-    let routeMapping = runRouter routes
-        pInfo = Wai.rawPathInfo req
+resourceToWaiT cfg run routes errors req respond =
+    resourceToWaiT' cfg run (runRouter routes) errors req respond
+
+-- | Like 'resourceToWaiT', but expects the 'RoutingSpec' to have been
+-- evaluated with 'runRouter'. This is more efficient than 'resourceToWaiT', as
+-- the routes will not be evaluated on every request.
+resourceToWaiT' :: Monad m
+               => AirshipConfig
+               -> (AirshipRequest -> m Wai.Response -> IO Wai.Response)
+               -> Trie (RouteLeaf m)
+               -> ErrorResponses m
+               -> Wai.Application
+resourceToWaiT' cfg run routeMapping errors req respond = do
+    let pInfo = Wai.rawPathInfo req
     quip <- getQuip
     nowTime <- getCurrentTime
     let (er, (reqParams, dispatched), routePath', r) =
@@ -132,7 +144,6 @@ resourceToWaiT cfg run routes errors req respond = do
         (response, trace) <-
             eitherResponse requestReader startingState (r >>= errorResponse er)
         return $ toWaiResponse response cfg (traceHeader trace) quip)
-
 
 -- | If the Response body is Empty the response body is set based on the error responses
 --  provided by the application and resource. If the response body is not Empty or

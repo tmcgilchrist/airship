@@ -5,6 +5,7 @@ module Airship.Helpers
     , redirectPermanently
     , resourceToWai
     , resourceToWaiT
+    , resourceToWaiT'
     , appendRequestPath
     , lookupParam
     , lookupParam'

@@ -104,10 +104,12 @@ resourceToWai :: AirshipConfig
 resourceToWai cfg routes errors =
     resourceToWaiT cfg (const id) routes errors
 
--- | Given a 'RoutingSpec', an 'ErrorResponses', and a user state @s@, construct a WAI 'Application'.
-resourceToWaiT :: Monad m =>
-                  AirshipConfig
-               -> (Request -> m Wai.Response -> IO Wai.Response)
+-- | Given a 'AirshipConfig, a function to modify the 'Response' based on the
+-- 'AirshipRequest' and the 'Response' (like WAI middleware), a 'RoutingSpec,
+-- and 'ErrorResponses' construct a WAI 'Application'.
+resourceToWaiT :: Monad m
+               => AirshipConfig
+               -> (AirshipRequest -> m Wai.Response -> IO Wai.Response)
                -> RoutingSpec m ()
                -> ErrorResponses m
                -> Wai.Application
@@ -120,11 +122,12 @@ resourceToWaiT cfg run routes errors req respond = do
          case route routeMapping pInfo of
              Nothing ->
                  (errors, (mempty, []), "", return $ Response HTTP.status404 [(HTTP.hContentType, "text/plain")] Empty)
-             Just (RoutedResource matchedRoute resource, pm) ->
-                 (M.union (errorResponses resource) errors, pm, routeText matchedRoute, flow resource)
-        requestReader = RequestReader nowTime req routePath'
+             Just (RoutedResource rPath resource, pm) ->
+                 (M.union (errorResponses resource) errors, pm, routeText rPath, flow resource)
+        airshipReq = AirshipRequest req routePath'
+        requestReader = RequestReader nowTime airshipReq
         startingState = ResponseState [] Empty reqParams dispatched []
-    respond =<< run req (do
+    respond =<< run airshipReq (do
         (response, trace) <-
             eitherResponse requestReader startingState (r >>= errorResponse er)
         return $ toWaiResponse response cfg (traceHeader trace) quip)

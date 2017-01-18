@@ -32,7 +32,8 @@ import qualified Data.List                  as L (foldl')
 import           Data.Maybe                 (isNothing)
 import           Data.Monoid
 import           Data.Text                  (Text)
-import qualified Data.Text                  as T (pack, unpack, intercalate)
+import qualified Data.Text                  as T (intercalate, cons)
+import           Data.Text.Encoding         (encodeUtf8, decodeUtf8)
 import           Data.Trie                  (Trie)
 import qualified Data.Trie                  as Trie
 
@@ -51,7 +52,7 @@ newtype Route = Route { getRoute :: [BoundOrUnbound] } deriving (Show, Monoid)
 
 routeText :: Route -> Text
 routeText (Route parts) =
-    T.intercalate "/" ("" : (boundOrUnboundText <$> parts))
+    T.cons '/' $ T.intercalate "/" ((boundOrUnboundText <$> parts))
 
 data BoundOrUnbound = Bound Text
                     | Var Text
@@ -151,7 +152,7 @@ k #> v = do
     tell $ (key', ctor) : routes
     where
         routeFoldFun (kps, rt, vs, False) (Bound x) =
-            (B.concat [kps, "/", toBS x], rt, vs, False)
+            (B.concat [kps, "/", encodeUtf8 x], rt, vs, False)
         routeFoldFun (kps, rt, vs, False) (Var x) =
             let partKey = Base64.encode $ B.concat [kps, "var"]
                 rt' = (kps, RVar) : rt
@@ -160,7 +161,6 @@ k #> v = do
             (kps, rt, vs, True)
         routeFoldFun (kps, rt, vs, True) _ =
             (kps, rt, vs, True)
-        toBS = BC8.pack . T.unpack
 
 
 (#>=) :: MonadWriter [(B.ByteString, (RouteLeaf a))] m
@@ -212,7 +212,7 @@ matchRoute' _routes (Just (matched, RouteMatch r vars, "")) ps dsp =
     where
         dispatchList (Just d) m = toTextList $ B.concat [d, m]
         dispatchList Nothing _ = mempty
-        toTextList bs = (T.pack . BC8.unpack) <$> BC8.split '/' bs
+        toTextList bs = decodeUtf8 <$> BC8.split '/' bs
 matchRoute' _routes (Just (_matched, RouteMatch _r _vars, _)) _ps _dsp =
     -- Part of the request path matched, but the trie value at the
     -- matched prefix is not an RVar or RouteMatchOrVar so there is no
@@ -235,11 +235,11 @@ matchRoute' routes (Just (matched, RVar, rest)) ps dsp
                                ]
             updDsp = if isNothing dsp then Just mempty
                      else dsp
-            paramVal = T.pack . BC8.unpack . BC8.takeWhile (/='/')
+            paramVal = decodeUtf8 . BC8.takeWhile (/='/')
                        $ BC8.dropWhile (=='/') rest
             matchRes = Trie.match routes nextKey
         in matchRoute' routes matchRes (paramVal:ps) updDsp
     | otherwise = Nothing
 matchRoute' _routes (Just (_matched, Wildcard r, rest)) _ps _dsp =
     -- Encountered a wildcard (star) value in the trie so it's a match
-    Just (r, (mempty, (T.pack . BC8.unpack) <$> [BC8.dropWhile (=='/') rest]))
+    Just (r, (mempty, decodeUtf8 <$> [BC8.dropWhile (=='/') rest]))

@@ -15,7 +15,6 @@ module Airship.Internal.Date
 import           Control.Applicative         ((<$>))
 #endif
 
-import           Data.ByteString.Char8       (ByteString, pack)
 import           Data.ByteString.Char8       ()
 import           Data.ByteString.Internal
 import           Data.Time.Calendar          (fromGregorian, toGregorian)
@@ -25,14 +24,6 @@ import           Data.Word
 import           Foreign.ForeignPtr
 import           Foreign.Ptr
 import           Foreign.Storable
-
-#if MIN_VERSION_time(1,5,0)
-import           Data.Time.Format            (defaultTimeLocale, formatTime)
-#else
--- get defaultTimeLocale from old-locale
-import           Data.Time.Format            (formatTime)
-import           System.Locale               (defaultTimeLocale)
-#endif
 
 import qualified Network.HTTP.Date           as HD
 

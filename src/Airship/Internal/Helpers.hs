@@ -30,6 +30,7 @@ import           Data.Foldable             (forM_)
 import qualified Data.HashMap.Strict       as HM
 import qualified Data.Map.Strict           as M
 import           Data.Text                 (Text)
+import           Data.Text.Encoding        (decodeUtf8)
 import           Data.Time                 (getCurrentTime)
 import           Lens.Micro                ((^.))
 import           Network.HTTP.Media
@@ -121,7 +122,7 @@ resourceToWaiT cfg run routes errors req respond = do
     let (er, (reqParams, dispatched), routePath', r) =
          case route routeMapping pInfo of
              Nothing ->
-                 (errors, (mempty, []), "", return $ Response HTTP.status404 [(HTTP.hContentType, "text/plain")] Empty)
+                 (errors, (mempty, []), decodeUtf8 pInfo, return $ Response HTTP.status404 [(HTTP.hContentType, "text/plain")] Empty)
              Just (RoutedResource rPath resource, pm) ->
                  (M.union (errorResponses resource) errors, pm, routeText rPath, flow resource)
         airshipReq = AirshipRequest req routePath'

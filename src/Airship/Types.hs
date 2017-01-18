@@ -13,6 +13,7 @@
 module Airship.Types
     ( ETag(..)
     , Webmachine
+    , AirshipRequest(..)
     , Request(..)
     , RequestReader(..)
     , Response(..)
@@ -80,10 +81,15 @@ entireRequestBody req = liftIO (requestBody req) >>= strictRequestBody' LB.empty
             | BS.null prev = return acc
             | otherwise = liftIO (requestBody req) >>= strictRequestBody' (acc <> LB.fromStrict prev)
 
-data RequestReader = RequestReader { _now       :: UTCTime
-                                   , _request   :: Request
-                                   , _routePath :: Text
-                                   }
+data RequestReader = RequestReader
+      { _now            :: UTCTime
+      , _airshipRequest :: AirshipRequest
+      }
+
+data AirshipRequest = AirshipRequest
+    { _request   :: Request
+    , _routePath :: Text
+    }
 
 data ETag = Strong ByteString
           | Weak ByteString
@@ -161,14 +167,14 @@ modify'' f = state (\s -> let s' = f s in s' `seq` ((), s'))
 
 -- | Returns the 'Request' that is currently being processed.
 request :: Monad m => Webmachine m Request
-request = _request <$> ask
+request = _request . _airshipRequest <$> ask
 
 -- | Returns the route path that was matched during route evaluation. This is
 -- not the path specified in the request, but rather the route in the
 -- 'RoutingSpec' that matched the request URL. Variables names are prefixed
 -- with @:@, and free ("star") paths are designated with @*@.
 routePath :: Monad m => Webmachine m Text
-routePath = _routePath <$> ask
+routePath = _routePath . _airshipRequest <$> ask
 
 -- | Returns the bound routing parameters extracted from the routing system (see "Airship.Route").
 params :: Monad m => Webmachine m (HashMap Text Text)

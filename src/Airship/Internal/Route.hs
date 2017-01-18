@@ -10,6 +10,7 @@ module Airship.Internal.Route
     , Route
     , RouteLeaf
     , RoutedResource(..)
+    , Trie
     , root
     , var
     , star
@@ -81,6 +82,8 @@ data RouteLeaf m = RouteMatch (RoutedResource m) [Text]
                  | Wildcard (RoutedResource m)
 
 
+-- | Turns the list of routes in a 'RoutingSpec' into a 'Trie' for efficient
+-- routing
 runRouter :: RoutingSpec m a -> Trie (RouteLeaf m)
 runRouter routes = toTrie $ execWriter (getRouter routes)
     where

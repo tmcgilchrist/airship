@@ -8,7 +8,7 @@ Airship is a Haskell library for handling and serving HTTP requests in a RESTful
 
 # How does it work?
 
-Airship resources are represented with a [`Resource` record type](https://github.com/helium/airship/blob/master/src/Airship/Resource.hs#L34-L106). Each field in `Resource` corresponds to an action taken in the [Webmachine decision tree](https://raw.githubusercontent.com/wiki/Webmachine/webmachine/images/http-headers-status-v3.png). Airship provides a `defaultResource` with sensible defaults for each of these actions; you build web services by overriding fields in the default resource with your own.
+Airship resources are represented with a [`Resource` record type](https://github.com/helium/airship/blob/master/src/Airship/Resource.hs#L39-L117). Each field in `Resource` corresponds to an action taken in the [Webmachine decision tree](https://raw.githubusercontent.com/wiki/Webmachine/webmachine/images/http-headers-status-v3.png). Airship provides a `defaultResource` with sensible defaults for each of these actions; you build web services by overriding fields in the default resource with your own.
 
 Routes are declared with a simple monadic syntax:
 

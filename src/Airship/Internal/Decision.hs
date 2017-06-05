@@ -556,12 +556,17 @@ l13 r@Resource{..} = do
         Nothing ->
             m16 r
 
-l07 r = do
+l07 r@Resource{..} = do
     trace "l07"
     req <- lift request
-    if requestMethod req == HTTP.methodPost
-        then m07 r
-        else lift $ halt HTTP.status404
+    if requestMethod req == HTTP.methodPost then m07 r
+    else do
+        m <- _contentType <$> get
+        when (isJust m) $ do
+            let (Just (ct, body)) = m
+            lift body >>= lift . putResponseBody
+            lift $ addResponseHeader ("Content-Type", renderHeader ct)
+        lift $ halt HTTP.status404
 
 l05 r@Resource{..} = do
     trace "l05"

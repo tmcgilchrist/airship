@@ -38,3 +38,12 @@ script:
       echo "expected '$SRC_TGZ' not found";
       exit 1;
    fi
+
+deploy:
+  skip_cleanup: true
+  provider: hackage
+  username: $HACKAGE_USERNAME
+  password: $HACKAGE_PASSWORD
+  on:
+    repo: helium/airship
+    tags: true

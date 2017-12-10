@@ -7,8 +7,9 @@ module Versions where
 
 import           Airship
 import           Blaze.ByteString.Builder.ByteString (fromByteString)
-
-import           Control.Applicative                 ((<$>))
+#if __GLASGOW_HASKELL__ < 710
+import           Control.Applicative                ((<$>))
+#endif
 import           Control.Concurrent.MVar
 import           Control.Monad.State                 hiding (State)
 

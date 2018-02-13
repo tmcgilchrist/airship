@@ -18,32 +18,42 @@ before_cache:
 
 matrix:
   include:
-    - compiler: "ghc-7.8.4"
-      addons: {apt: {packages: [ghc-ppa-tools,cabal-install-1.18,ghc-7.8.4], sources: [hvr-ghc]}}
-    - compiler: "ghc-7.10.3"
-      addons: {apt: {packages: [ghc-ppa-tools,cabal-install-1.22,ghc-7.10.3], sources: [hvr-ghc]}}
-    - compiler: "ghc-8.0.2"
-      addons: {apt: {packages: [ghc-ppa-tools,cabal-install-1.24,ghc-8.0.2], sources: [hvr-ghc]}}
-    - compiler: "ghc-8.2.2"
-      addons: {apt: {packages: [ghc-ppa-tools,cabal-install-2.0,ghc-8.2.2], sources: [hvr-ghc]}}
+    - env: CABALVER=1.18 GHCVER=7.8.4
+      compiler: "ghc-7.8.4"
+      addons: {apt: {packages: [cabal-install-1.18,ghc-7.8.4], sources: [hvr-ghc]}}
+    - env: CABALVER=1.22 GHCVER=7.10.3
+      compiler: "ghc-7.10.3"
+      addons: {apt: {packages: [cabal-install-1.22,ghc-7.10.3], sources: [hvr-ghc]}}
+    - env: CABALVER=1.24 GHCVER=8.0.2
+      compiler: "ghc-8.0.2"
+      addons: {apt: {packages: [cabal-install-1.24,ghc-8.0.2], sources: [hvr-ghc]}}
+    - env: CABALVER=2.0 GHCVER=8.2.2
+      compiler: "ghc-8.2.2"
+      addons: {apt: {packages: [cabal-install-2.0,ghc-8.2.2], sources: [hvr-ghc]}}
+    - compiler: "ghc-8.4.1"
+      env: GHCHEAD=true
+      addons: {apt: {packages: [cabal-install-head,ghc-8.4.1], sources: [hvr-ghc]}}
+
+  allow_failures:
+    - compiler: "ghc-8.4.1"
 
 before_install:
-  - unset CC
-  - travis_retry sudo add-apt-repository -y ppa:hvr/ghc
-  - travis_retry sudo apt-get update
-  - travis_retry sudo apt-get install cabal-install-$CABALVER ghc-$GHCVER # see note about happy/alex
-  - export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$PATH
+ - unset CC
+ - export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$PATH
 
 install:
   - cabal --version
   - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
-  - travis_retry cabal update
+  - travis_retry cabal update -v
   - cabal install --only-dependencies --enable-tests --enable-benchmarks
 
 script:
   - cabal configure --enable-tests --enable-benchmarks -v2  # -v2 provides useful information for debugging
   - cabal build   # this builds all libraries and executables (including tests/benchmarks)
   - cabal test
+  - cabal check
+  - cabal haddock # tests that documentation can be generated
+  - cabal sdist   # tests that a source-distribution can be generated
 
 deploy:
   skip_cleanup: true

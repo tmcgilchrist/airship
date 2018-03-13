@@ -21,8 +21,6 @@ matrix:
     - env: CABALVER=2.0 GHCVER=8.4.4
       compiler: "ghc-8.4.4"
       addons: {apt: {packages: [cabal-install-2.0,ghc-8.4.4], sources: [hvr-ghc]}}
-  allow-failures:
-   - env: GHCVER=ghc-8.4.4
 
 addons:
   apt:

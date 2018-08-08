@@ -1,8 +1,0 @@
-flags: {}
-packages:
-- ./
-- example
-extra-deps:
-- microlens-0.3.4.1
-- http-types-0.9
-resolver: lts-2.2

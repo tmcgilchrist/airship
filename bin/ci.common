@@ -1,0 +1,19 @@
+#!/bin/sh -eux
+
+WORKING_DIR=$(pwd)
+
+find . -type f -name '*.cabal' | grep -v '^\./lib' | while read P; do
+  cd "$(dirname "${P}")"
+
+  cabal update
+  cabal sandbox init
+  cabal install --only-dependencies --enable-tests --enable-benchmarks
+  cabal configure --enable-tests --enable-benchmarks -v2  # -v2 provides useful information for debugging
+  cabal build   # this builds all libraries and executables (including tests/benchmarks)
+  cabal test
+
+  cabal haddock # tests that documentation can be generated
+  cabal sdist   # tests that a source-distribution can be generated
+
+  cd "${WORKING_DIR}"
+done

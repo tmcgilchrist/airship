@@ -6,7 +6,7 @@ version:              0.9.3
 license:              MIT
 license-file:         LICENSE
 author:               Reid Draper and Patrick Thomson
-maintainer:           Tim McGilchrist <timmcgil@gmail.com>, reid@helium.com
+maintainer:           Tim McGilchrist <timmcgil@gmail.com>
 category:             Web
 build-type:           Simple
 cabal-version:        >=1.10
@@ -15,7 +15,7 @@ description:          A Webmachine-inspired HTTP library based off ideas from th
                       A number of examples can be found in <https://github.com/helium/airship/tree/master/example> illustrating how to build airship based services.
 tested-with: GHC == 7.8.4, GHC == 7.10.3, GHC == 8.0.2, GHC == 8.2.2
 extra-source-files:
-  README.md
+  ../README.md
   Changes.md
 
 source-repository head

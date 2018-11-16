@@ -1,20 +1,52 @@
-language: generic
-sudo: false
-
+language: minimal
+sudo: required
+dist: trusty
 git:
-  submodules: false  # whether to recursively clone submodules
-
+  submodules: false
 cache:
   directories:
-    - $HOME/.cabal/packages
+  - "$HOME/.cabal"
 
-before_cache:
-  - rm -fv $HOME/.cabal/packages/hackage.haskell.org/build-reports.log
-  - rm -fv $HOME/.cabal/packages/hackage.haskell.org/00-index.*
-  - rm -fv $HOME/.cabal/packages/hackage.haskell.org/*.json
-  - rm -fv $HOME/.cabal/packages/hackage.haskell.org/01-index.cache
-  - rm -fv $HOME/.cabal/packages/hackage.haskell.org/01-index.tar
-  - rm -fv $HOME/.cabal/packages/hackage.haskell.org/01-index.tar.idx
+matrix:
+  include:
+    - env: CABALVER=1.18 GHCVER=7.8.4
+      compiler: "ghc-7.8.4"
+      addons: {apt: {packages: [cabal-install-1.18,ghc-7.8.4], sources: [hvr-ghc]}}
+    - env: CABALVER=1.22 GHCVER=7.10.3
+      compiler: "ghc-7.10.3"
+      addons: {apt: {packages: [cabal-install-1.22,ghc-7.10.3], sources: [hvr-ghc]}}
+    - env: CABALVER=1.24 GHCVER=8.0.2
+      compiler: "ghc-8.0.2"
+      addons: {apt: {packages: [cabal-install-1.24,ghc-8.0.2], sources: [hvr-ghc]}}
+    - env: CABALVER=2.0 GHCVER=8.2.2
+      compiler: "ghc-8.2.2"
+      addons: {apt: {packages: [cabal-install-2.0,ghc-8.2.2], sources: [hvr-ghc]}}
+    - compiler: "ghc-8.4.4"
+      env: GHCHEAD=true
+      addons: {apt: {packages: [cabal-install-head,ghc-8.4.4], sources: [hvr-ghc]}}
+  allow-failures:
+   - env: GHCVER=ghc-8.4.4
+
+addons:
+  apt:
+    update: true
+    sources:
+      - hvr-ghc
+    packages:
+      - ghc-7.10.2
+      - libgmp-dev
+
+before_install:
+  # ghc
+  - export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$PATH
+
+script:
+  # time it out before travis kills it.
+  # If travis times out the build, it wont save the cache, meaning the
+  # next build will also most likely timeout
+  # (travis_wait doesnt work btw, theres still a global timeout of
+  # approx 40 mins it seems.
+  - timeout 35m bin/ci
 
 matrix:
   include:
@@ -41,25 +73,10 @@ before_install:
  - unset CC
  - export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$PATH
 
-install:
-  - cabal --version
-  - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
-  - travis_retry cabal update -v
-  - cabal install --only-dependencies --enable-tests --enable-benchmarks
-
 script:
-  - cabal configure --enable-tests --enable-benchmarks -v2  # -v2 provides useful information for debugging
-  - cabal build   # this builds all libraries and executables (including tests/benchmarks)
-  - cabal test
-  - cabal check
-  - cabal haddock # tests that documentation can be generated
-  - cabal sdist   # tests that a source-distribution can be generated
-
-deploy:
-  skip_cleanup: true
-  provider: hackage
-  username: $HACKAGE_USERNAME
-  password: $HACKAGE_PASSWORD
-  on:
-    repo: helium/airship
-    tags: true
+  # time it out before travis kills it.
+  # If travis times out the build, it wont save the cache, meaning the
+  # next build will also most likely timeout
+  # (travis_wait doesnt work btw, theres still a global timeout of
+  # approx 40 mins it seems.
+  - timeout 35m bin/ci

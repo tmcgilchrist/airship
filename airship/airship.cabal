@@ -72,9 +72,8 @@ library
                       , transformers-base
                       , unix                    == 2.7.*
                       , unordered-containers
-                      , wai                     >= 3.0     && < 3.3
-                      -- See https://github.com/yesodweb/wai/pull/704
-                      , wai-extra               >= 3.0     && < 3.0.23 
+                      , wai                     >= 3.0.3.0 && < 3.3
+                      , wai-extra               >= 3.0     && < 3.0.26
 
 test-suite unit
   default-language:   Haskell2010

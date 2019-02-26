@@ -47,7 +47,7 @@ library
                       , base64-bytestring       == 1.0.*
                       , blaze-builder           >= 0.3     && < 0.5
                       , bytestring
-                      , bytestring-trie         == 0.2.4.*
+                      , bytestring-trie         >= 0.2.4   && < 0.2.6
                       , case-insensitive
                       , containers
                       , cryptohash              == 0.11.*

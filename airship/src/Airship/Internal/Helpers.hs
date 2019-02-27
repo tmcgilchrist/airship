@@ -3,7 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE RecordWildCards   #-}
-
+{-# LANGUAGE MonoLocalBinds    #-}
 module Airship.Internal.Helpers
     ( parseFormData
     , contentTypeMatches
@@ -121,7 +121,7 @@ resourceToWaiT cfg run routes errors req respond =
 -- | Like 'resourceToWaiT', but expects the 'RoutingSpec' to have been
 -- evaluated with 'runRouter'. This is more efficient than 'resourceToWaiT', as
 -- the routes will not be evaluated on every request.
--- 
+--
 -- Given @routes :: RoutingSpec IO ()@, 'resourceToWaiT'' can be invoked like so:
 --
 -- > resourceToWaiT' cfg (const id) (runRouter routes) errors

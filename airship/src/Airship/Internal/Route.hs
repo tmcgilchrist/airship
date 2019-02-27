@@ -31,7 +31,8 @@ import qualified Data.ByteString.Char8      as BC8
 import           Data.HashMap.Strict        (HashMap, fromList)
 import qualified Data.List                  as L (foldl')
 import           Data.Maybe                 (isNothing)
-import           Data.Monoid
+import           Data.Semigroup             (Semigroup, (<>))
+import           Data.Monoid                (Monoid)
 import           Data.Text                  (Text)
 import qualified Data.Text                  as T (intercalate, cons)
 import           Data.Text.Encoding         (encodeUtf8, decodeUtf8)
@@ -49,7 +50,7 @@ import           Data.String                (IsString, fromString)
 -- | 'Route's represent chunks of text used to match over URLs.
 -- You match hardcoded paths with string literals (and the @-XOverloadedStrings@ extension),
 -- named variables with the 'var' combinator, and wildcards with 'star'.
-newtype Route = Route { getRoute :: [BoundOrUnbound] } deriving (Show, Monoid)
+newtype Route = Route { getRoute :: [BoundOrUnbound] } deriving (Show, Semigroup, Monoid)
 
 routeText :: Route -> Text
 routeText (Route parts) =

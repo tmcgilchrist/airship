@@ -104,7 +104,7 @@ script:
 
   # cabal check
   - (cd airship-* && cabal check)
-  - (cd airship-example-* && cabal check)
+  # - (cd airship-example-* && cabal check)
 
   # haddock
   - rm -rf ./dist-newstyle

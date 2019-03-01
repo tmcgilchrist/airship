@@ -1,3 +1,6 @@
+* 0.9.4
+  - Bump upper bounds on bytestring-trie
+  - Support GHC 8.4 and 8.6
 * 0.9.3
   - Bump upper bound on http-types due to stackage.
 * 0.9.0

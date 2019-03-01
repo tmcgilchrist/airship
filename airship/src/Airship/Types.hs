@@ -72,7 +72,6 @@ import           Network.Wai                         (Request (..),
                                                       defaultRequest)
 import qualified Network.Wai                         as Wai
 
-
 -- | Reads the entirety of the request body in a single string.
 -- This turns the chunks obtained from repeated invocations of 'requestBody' into a lazy 'ByteString'.
 entireRequestBody :: MonadIO m => Request -> m LB.ByteString

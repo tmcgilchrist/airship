@@ -1,9 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
-
 module Main where
 
-import Airship
-import Control.Concurrent
+import Airship (requestBody, entireRequestBody, defaultRequest)
+import Control.Concurrent (newMVar, modifyMVar)
 import Data.ByteString (ByteString)
 
 import Test.Tasty

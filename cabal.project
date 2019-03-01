@@ -1,0 +1,4 @@
+packages:
+  airship/airship.cabal
+  example/airship-example.cabal  
+

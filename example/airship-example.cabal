@@ -9,7 +9,7 @@ maintainer:             Tim McGilchrist <timmcgil@gmail.com>
 category:               Web
 build-type:             Simple
 cabal-version:          >=1.10
-tested-with:            GHC == 7.10.3, GHC == 8.0.2, GHC == 8.2.2, GHC == 8.4.3
+tested-with:            GHC == 7.10.3, GHC == 8.0.2, GHC == 8.2.2, GHC == 8.4.3, GHC == 8.6.3
 
 executable              basic
   main-is:              Basic.hs

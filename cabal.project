@@ -1,4 +1,9 @@
 packages:
-  airship/airship.cabal
-  example/airship-example.cabal  
+  airship
+  example
+
+package airship
+  ghc-options: -Wall -Werror
+package example
+  ghc-options: -Wall -Werror
 

@@ -13,7 +13,12 @@ cabal-version:        >=1.10
 description:          A Webmachine-inspired HTTP library based off ideas from the original Erlang project <https://github.com/webmachine/webmachine>
                       .
                       A number of examples can be found in <https://github.com/helium/airship/tree/master/example> illustrating how to build airship based services.
-tested-with:          GHC == 7.10.3, GHC == 8.0.2, GHC == 8.2.2, GHC == 8.4.3, GHC == 8.6.3, GHC == 8.8.1
+tested-with:          GHC == 7.10.3, 
+                      GHC == 8.0.2, 
+                      GHC == 8.2.2, 
+                      GHC == 8.4.3, 
+                      GHC == 8.6.3, 
+                      GHC == 8.8.2
 extra-source-files:
   README.md
   Changes.md

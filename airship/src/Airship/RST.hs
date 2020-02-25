@@ -69,18 +69,8 @@ instance (Monad m) => MonadReader r (RST r s e m) where
     ask = RST $ \r s -> return $! (Right r,s)
     local f m = RST $ \r s -> runRST m (f r) s
 
--- Terrible hack to work around the fact that Functor isn't a superclass
--- of Monad on GHC 7.8. TODO kill this when 7.8 support is dropped
-#if __GLASGOW_HASKELL__ == 708
-instance (Monad m) => Functor (RST r s e m) where
-    fmap f m = RST $ \r s -> runRST m r s >>= helper where
-      helper (a, s') = case a of
-          (Left l) -> return $! (Left l, s')
-          (Right r) -> return $! (Right $ f r, s')
-#else
 instance (Functor m) => Functor (RST r s e m) where
     fmap f m = RST $ \r s -> fmap (\(a,s') -> (fmap f a, s')) $ runRST m r s
-#endif
 
 instance Monad m => Applicative (RST r s e m) where
     pure = return

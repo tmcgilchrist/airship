@@ -110,7 +110,10 @@ rwsBind m f = RST go
 instance (Monad m) => Monad (RST r s e m) where
     return a = RST $ \_ s -> return $! (Right a, s)
     (>>=)    = rwsBind
-    fail   = Fail.fail
+#if !MIN_VERSION_base(4,11,0)
+    -- Monad(fail) was removed in GHC 8.8.1
+    fail = Fail.fail
+#endif
 
 instance (Monad m) => Fail.MonadFail (RST r s e m) where
     fail msg = RST $ \_ _ -> fail msg

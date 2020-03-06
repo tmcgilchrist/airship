@@ -38,6 +38,7 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..),
                                               defaultLiftBaseWith,
                                               defaultRestoreM)
+import qualified Control.Monad.Fail          as Fail
 import           Data.Either
 import           Prelude                     (Functor (..), Monad (..), seq,
                                               ($), ($!))
@@ -109,7 +110,10 @@ rwsBind m f = RST go
 instance (Monad m) => Monad (RST r s e m) where
     return a = RST $ \_ s -> return $! (Right a, s)
     (>>=)    = rwsBind
-    -- fail msg = RST $ \_ _ -> fail msg
+    fail   = Fail.fail
+
+instance (Monad m) => Fail.MonadFail (RST r s e m) where
+    fail msg = RST $ \_ _ -> fail msg
 
 instance (MonadPlus m) => MonadPlus (RST r s e m) where
     mzero       = RST $ \_ _ -> mzero

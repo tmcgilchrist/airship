@@ -29,7 +29,7 @@ module Airship.RST
 import           Control.Applicative         (Alternative (..),
                                               Applicative (..))
 import           Control.Category            ((.))
-import           Control.Monad               (MonadPlus (..), ap)
+import           Control.Monad               (MonadPlus (..), ap, fail)
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Reader        (MonadReader (..))
 import           Control.Monad.State.Class   (MonadState (..))

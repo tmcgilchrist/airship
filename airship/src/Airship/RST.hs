@@ -115,7 +115,7 @@ instance (Monad m) => Monad (RST r s e m) where
     fail = Fail.fail
 #endif
 
-instance (Monad m) => Fail.MonadFail (RST r s e m) where
+instance (Fail.MonadFail m) => Fail.MonadFail (RST r s e m) where
     fail msg = RST $ \_ _ -> fail msg
 
 instance (MonadPlus m) => MonadPlus (RST r s e m) where

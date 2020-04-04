@@ -1,0 +1,79 @@
+version: 2.1
+
+orbs:
+  haskell: haskell-works/haskell-build@4.1.7
+  github: haskell-works/github-release@1.3.3
+  hackage: haskell-works/hackage@1.3.0
+
+executors:
+  darwin:
+    macos:
+      xcode: 10.0
+  ghc-8_6_5_old:
+    docker:
+      - image: quay.io/haskell_works/ghc-8.6.5:ubuntu-16.04
+  ghc-8_8_3_old:
+    docker:
+      - image: quay.io/haskell_works/ghc-8.8.3:ubuntu-16.04
+
+workflows:
+  multiple-ghc-build:
+    jobs:
+      - haskell/build-with-cci-cache:
+          name: GHC 7.10.3
+          executor: haskell/ghc-7_10_3
+          context: haskell-ci
+          cabal-test-extra: --test-show-details=direct
+
+      - haskell/build-with-cci-cache:
+          name: GHC 8.0.2
+          executor: haskell/ghc-8_0_2
+          context: haskell-ci
+          cabal-test-extra: --test-show-details=direct
+
+      - haskell/build-with-cci-cache:
+          name: GHC 8.2.2
+          executor: haskell/ghc-8_2_2
+          context: haskell-ci
+          cabal-test-extra: --test-show-details=direct
+
+      - haskell/build-with-cci-cache:
+          name: GHC 8.4.4
+          executor: haskell/ghc-8_4_4
+          context: haskell-ci
+          cabal-test-extra: --test-show-details=direct
+
+      - haskell/build-with-cci-cache:
+          name: GHC 8.6.5
+          executor: haskell/ghc-8_6_5
+          context: haskell-ci
+          cabal-test-extra: --test-show-details=direct
+
+      - haskell/build-with-cci-cache:
+          name: GHC 8.8.3
+          executor: haskell/ghc-8_8_3
+          context: haskell-ci
+          cabal-test-extra: --test-show-details=direct
+
+      - github/release-cabal:
+          name: GitHub Release
+          attach-workspace: true
+          context: haskell-ci
+          lockstep-versions: true
+          requires:
+            - GHC 7.10.3
+            - GHC 8.0.2
+            - GHC 8.2.2
+            - GHC 8.4.4
+            - GHC 8.6.5
+            - GHC 8.8.3
+          checkout: true
+          filters:
+            branches:
+              only: master
+
+      # - hackage/upload:
+      #     context: haskell-ci
+      #     publish: true
+      #     requires:
+      #       - GitHub Release

@@ -14,7 +14,8 @@ tested-with:            GHC == 7.10.3,
                         GHC == 8.2.2, 
                         GHC == 8.4.3, 
                         GHC == 8.6.3, 
-                        GHC == 8.8.2
+                        GHC == 8.8.2,
+                        GHC == 8.10.1
 
 executable              basic
   main-is:              Basic.hs

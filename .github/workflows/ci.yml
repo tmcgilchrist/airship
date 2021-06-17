@@ -1,0 +1,45 @@
+name: CI
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types:
+      - opened
+      - synchronize
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        cabal: ["3.4"]
+        ghc:  ["8.0.2", "8.2.2", "8.4.4", "8.6.5", "8.8.4"]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: haskell/actions/setup@v1
+        id: setup-haskell-cabal
+        with:
+          ghc-version: ${{ matrix.ghc }}
+          cabal-version: ${{ matrix.cabal }}
+      - name: Cabal Update
+        run: |
+          cabal v2-update
+          cabal v2-freeze $CONFIG
+      - uses: actions/cache@v2.1.4
+        with:
+          path: |
+            ${{ steps.setup-haskell-cabal.outputs.cabal-store }}
+            dist-newstyle
+          key: ${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('cabal.project.freeze') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.ghc }}-
+      # TODO Enable when codegen is fixed in GA
+      # - name: Build riak-protobuf-lens
+      #   run: |
+      #     cabal build lib:riak-protobuf-lens
+      - name: Build riak-protobuf
+        run: |
+          cabal build lib:riak-protobuf
+      - name: Build riak
+        run: |
+          cabal build lib:riak

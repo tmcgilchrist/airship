@@ -3,7 +3,7 @@ packages:
   example
 
 package airship
-  ghc-options: -Wall -Werror
+  ghc-options: -Wall
 package example
-  ghc-options: -Wall -Werror
+  ghc-options: -Wall
 

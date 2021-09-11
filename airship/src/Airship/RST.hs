@@ -29,7 +29,7 @@ module Airship.RST
 import           Control.Applicative         (Alternative (..),
                                               Applicative (..))
 import           Control.Category            ((.))
-import           Control.Monad               (MonadPlus (..), ap)
+import           Control.Monad               (MonadPlus (..), ap, fail)
 import           Control.Monad.Base          (MonadBase (..))
 import           Control.Monad.Reader        (MonadReader (..))
 import           Control.Monad.State.Class   (MonadState (..))
@@ -38,6 +38,7 @@ import           Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..),
                                               MonadTransControl (..),
                                               defaultLiftBaseWith,
                                               defaultRestoreM)
+import qualified Control.Monad.Fail          as Fail
 import           Data.Either
 import           Prelude                     (Functor (..), Monad (..), seq,
                                               ($), ($!))
@@ -109,7 +110,13 @@ rwsBind m f = RST go
 instance (Monad m) => Monad (RST r s e m) where
     return a = RST $ \_ s -> return $! (Right a, s)
     (>>=)    = rwsBind
-    -- fail msg = RST $ \_ _ -> fail msg
+#if !MIN_VERSION_base(4,11,0)
+    -- Monad(fail) was removed in GHC 8.8.1
+    fail = Fail.fail
+#endif
+
+instance (Fail.MonadFail m) => Fail.MonadFail (RST r s e m) where
+    fail msg = RST $ \_ _ -> fail msg
 
 instance (MonadPlus m) => MonadPlus (RST r s e m) where
     mzero       = RST $ \_ _ -> mzero

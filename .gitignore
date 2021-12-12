@@ -10,3 +10,5 @@ dist-newstyle/
 .DS_Store
 .stack-work/
 TAGS
+
+doc/_build

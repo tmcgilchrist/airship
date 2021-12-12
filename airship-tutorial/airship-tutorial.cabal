@@ -1,0 +1,96 @@
+name:                  airship-tutorial
+version:               0.0.1
+license:               MIT
+author:                Tim McGilchrist <timmcgil@gmail.com>
+maintainer:            Tim McGilchrist <timmcgil@gmail.com>
+copyright:             (c) 2018 Tim McGilchrist.
+synopsis:              Tutorial for airship service
+category:              Education
+cabal-version:         >= 1.8
+build-type:            Simple
+description:           Tutorial for airship service
+
+library
+  build-depends:
+                      base                            >= 3          && < 5
+                    , aeson                           
+                    , either                          
+                    , text                            == 1.2.*
+                    , airship
+                    , uuid                            
+                    , time
+                    , containers
+                    , http-types
+                    , transformers
+                    , blaze-builder                   
+                    , mmorph                          
+                    , http-media
+                    , bytestring                      
+                    , hashable                        
+                    , http-date                       
+                    , old-locale                      
+                    , binary                      
+                    , unordered-containers
+                    , pureMD5                         
+                    
+  ghc-options:
+                    -Wall
+
+  hs-source-dirs:
+                    src gen
+
+  exposed-modules:
+                    Tweeter
+                  , Tweeter.Data
+                  , Tweeter.Db
+                  , Tweeter.Routes
+                  , Tweeter.TweetResource
+                  , Tweeter.TweetsResource
+
+executable airship-tutorial
+  ghc-options:
+                    -Wall -threaded -O2
+
+  main-is:
+                    main/tweeter.hs
+
+  build-depends:
+                      base
+                    , airship-tutorial
+                    , optparse-applicative            
+                    , text
+                    , airship
+                    , warp
+                    , wai-extra
+                    , time
+                    , transformers
+
+
+test-suite test
+  type:
+                    exitcode-stdio-1.0
+
+  main-is:
+                    test.hs
+
+  ghc-options:
+                    -Wall -threaded -O2
+
+  hs-source-dirs:
+                    test
+
+  build-depends:
+                      base                            >= 3          && < 5
+                    , airship-tutorial
+                    , hedgehog
+                    , text
+                    , wai
+                    , wai-extra
+                    , http-types
+                    , bytestring
+                    , aeson
+                    , airship
+                    , transformers
+                    , directory
+                    , process
+  other-modules:    Test.Tweeter

@@ -26,8 +26,8 @@ For a slightly more involved example that generates HTML and manages a pool of r
 
 Airship is copyright &copy; 2015 Helium Systems, Inc., and released to the public under the terms of the MIT license.
 
-[github-shield]: https://github.com/tmcgilchrist/airship/actions/workflows/ci.yaml/badge.svg
-[github-ci]: https://github.com/tmcgilchrist/airship/actions/workflows/ci.yaml
+[github-shield]: https://github.com/tmcgilchrist/airship/actions/workflows/ci.yml/badge.svg
+[github-ci]: https://github.com/tmcgilchrist/airship/actions/workflows/ci.yml
 
 [docs-shield]:https://img.shields.io/badge/doc-online-blue.svg
 [docs]: https://tmcgilchrist.github.io/airship/index.html

@@ -2,7 +2,7 @@ name:               airship
 synopsis:           A Webmachine-inspired HTTP library
 homepage:           https://github.com/tmcgilchrist/airship/
 bug-reports:        https://github.com/tmcgilchrist/airship/issues
-version:            0.9.4
+version:            0.9.5
 license:            MIT
 license-file:       LICENSE
 author:             Reid Draper and Patrick Thomson
